@@ -1,13 +1,21 @@
+/* ===== PALETA SALUD (ROJO-AZUL SALUD) ===== */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+body, .content-wrapper, .main-footer {
+    font-family: 'Roboto', sans-serif !important;
+}
+
 .btn-success {
     font-size: 18px;
-    font-family: inherit;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
     padding: 5px 12px;
     height: 55px;
     min-width: 21.85%;
     margin: 0px 10px 14px 20px;
     text-align: left;
     color: white;
-    background: #727477;
+    background: #66819E;
     text-indent: 4px;
     vertical-align: middle;
     border-radius: 0px;
@@ -20,33 +28,22 @@
     transform: translate3d(0, 0, 0);
 }
 .btn-success:hover {
-    background-color:#d1351b;
-    font-size: 18px;
-    font-family: inherit;
-    padding: 5px 12px;
-    height: 55px;
-    min-width: 21.85%;
-    margin: 0px 10px 14px 20px;
-    text-align: left;
-    color: white;
-    text-indent: 4px;
-    vertical-align: middle;
-    border-radius: 0px;
-    border-color: transparent;
+    background-color:#c8102e;
     box-shadow: 0 5px 11px 0 rgba(0,0,0,0.18), 0 4px 15px 0 rgba(0,0,0,0.15);
     -webkit-transition: box-shadow 0.4s ease-out;
     transition: box-shadow 0.4s ease-out;
 }
 .btn-warning, .btn-warning:hover {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
     font-size: 18px;
-    font-family: inherit;
     padding: 5px 12px;
     height: 55px;
     min-width: 21.85%;
     margin: 0px 10px 14px 20px;
     text-align: left;
     color: white;
-    background: #d1351b;
+    background: #c8102e;
     text-indent: 4px;
     vertical-align: middle;
     border-radius: 0px;
@@ -72,7 +69,7 @@
     align-items: center;
     display: block;
     margin: 0 auto;
-    background: #d1351b;
+    background: #c8102e;
     color: white;
     min-width: 25%;
     border-color: white
@@ -85,18 +82,23 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
     display: block;
 }
 .btn-danger {
-    background-color: #d1351b;
-    border-color: #d1351b;
+    background-color: #c8102e;
+    border-color: #c8102e;
     height: 55px;
-    width: calc(100% - 20px);
+    width: 300px;
     margin: 0 10px;
     border-radius: 0;
     position: relative;
     font-size: 18px;
 }
+.btn-danger:hover {
+    background-color: #66819E; /* or any color you prefer */
+    border-color: #66819E;
+    color: white;
+}
 .btn-primary {
-    background-color: darkgrey;
-    border-color: darkgrey;
+    background-color: #c8102e;
+    border-color: #c8102e;
     color: white;
     height: 55px;
     width: 300px;
@@ -105,15 +107,14 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
     font-size: 18px;
 }
 .btn-primary:hover {
-    background-color: #d1351b;
-    border-color: #d1351b;
+    background-color: #66819E;
+    border-color: #66819E;
     color: white;
-    border-color: #d1351b;
 }
 
 .btn-warning {
-    background-color: #f39c12;
-    border-color: #f39c12;
+    background-color: #66819E;
+    border-color: #66819E;
     height: 55px;
     width: calc(100% - 20px);
     margin: 0 10px;
@@ -123,8 +124,8 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
 }
 
 .btn-info {
-    background-color: #3498db;
-    border-color: #3498db;
+    background-color: #8BA3B8;
+    border-color: #8BA3B8;
     height: 55px;
     width: calc(100% - 20px);
     margin: 0 10px;
@@ -134,8 +135,8 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
 }
 
 .btn-default {
-    background-color: #95a5a6;
-    border-color: #95a5a6;
+    background-color: #34495E;
+    border-color: #34495E;
     height: 55px;
     width: calc(100% - 20px);
     margin: 0 10px;
@@ -158,118 +159,115 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
 .skin-black .treeview-menu > li:hover > a {
     color: white;
     white-space: pre-line;
-    background-color:#606164;;
+    background-color:#c8102e;
 }
 
+.info-box {
+    min-height:55px;
+    float:center;
+    box-shadow:5px 5px 5px lightgrey;
+    border-bottom: 0px;
+}
 
- .info-box {
-     min-height:55px;
-     float:center;
-     box-shadow:5px 5px 5px lightgrey;
-     border-bottom: 0px;
- }
-
- .info-box-icon.bg-black {
-     height:55px; 
+.info-box-icon.bg-black {
+    height:55px; 
 }
 .bg-black {
-    background-color: #727477 !important;
+    background-color: #34495E !important;
     height: 55px;
     line-height:55px;
-
 }
 .text-success {
-    color: #d1351b;
+    color: #c8102e;
     font-size: large;
-
 }
- .skin-black .main-header .navbar {
-     background-color:#d1351b 
+.skin-black .main-header .navbar {
+    background-color:#c8102e 
 }
- .skin-black .main-header .navbar .nav > li > a {
-     color:#fff 
+.skin-black .main-header .navbar .nav > li > a {
+    color:#fff 
 }
- .skin-black .main-header .navbar .nav > li > a:hover {
-     background:#ffffff;
-     color:#d1351b 
+.skin-black .main-header .navbar .nav > li > a:hover {
+    background:#F8F9FA;
+    color:#c8102e 
 }
- .skin-black .main-header .navbar .sidebar-toggle {
-     color:#ffffff 
+.skin-black .main-header .navbar .sidebar-toggle {
+    color:#ffffff 
 }
- .skin-black .main-header .navbar .sidebar-toggle:hover {
-     color:#d1351b;
-     background:#fff 
+.skin-black .main-header .navbar .sidebar-toggle:hover {
+    color:#c8102e;
+    background:#F8F9FA 
 }
- .skin-black .main-header .navbar .navbar-custom-menu .navbar-nav > li > a, .skin-black .main-header .navbar .navbar-right > li > a {
-     border-left:1px solid #d1351b;
-     border-right-width:0 
+.skin-black .main-header .navbar .navbar-custom-menu .navbar-nav > li > a, .skin-black .main-header .navbar .navbar-right > li > a {
+    border-left:1px solid #c8102e;
+    border-right-width:0 
 }
- .main-header .logo {
-     font-family:"Helvetica Neue", sans-serif ;
-     font-weight:bold;
-     letter-spacing:-1px; 
-     font-size:30px; 
-     color:#ffffff;
+.main-header .logo {
+    font-family:'Roboto', sans-serif;
+    font-weight:700;
+    letter-spacing:-1px; 
+    font-size:30px; 
+    color:#ffffff;
 }
- .modal-dialog{
-     max-width:1000px;
-     border-radius: 5px;
-     border: 2px solid white; 
+.modal-dialog{
+    max-width:1000px;
+    border-radius: 5px;
+    border: 2px solid white; 
 }
- .modal-body{
-     max-height:700px;
-     align-content:center;
-     border: 2px solid white;
-     border-radius: 5px;
+.modal-body{
+    max-height:700px;
+    align-content:center;
+    border: 2px solid white;
+    border-radius: 5px;
 }
- .modal-sm {
-     max-width:1200px; 
-     align-content:center;
-     border-radius: 5px;
-     border: 2px solid white;
+.modal-sm {
+    max-width:1200px; 
+    align-content:center;
+    border-radius: 5px;
+    border: 2px solid white;
 }
- .sidebar {
-     height:90vh;
-     overflow-y:auto 
+.sidebar {
+    height:90vh;
+    overflow-y:auto 
 }
- .skin-black .main-header > .logo {
-     background-color:#d1351b;
-     color:#ffffff;
-     border-bottom:0 solid transparent;
-     border-right:1px solid #d1351b;
+.skin-black .main-header > .logo {
+    background-color:#c8102e;
+    color:#ffffff;
+    border-bottom:0 solid transparent;
+    border-right:1px solid #c8102e;
 }
- .skin-black .main-header > .logo:hover {
-     background-color:#d1351b 
+.skin-black .main-header > .logo:hover {
+    background-color:#66819E 
 }
- .nav-tabs-custom > .nav-tabs > li.active {
-     border-top-color:#616365 
+.nav-tabs-custom > .nav-tabs > li.active {
+    border-top-color:#66819E 
 }
- .nav-tabs-custom {
-     box-shadow:5px 5px 5px lightgrey 
+.nav-tabs-custom {
+    box-shadow:5px 5px 5px lightgrey 
 }
- .skin-black .left-side, .skin-black .main-sidebar, .skin-black .wrapper {
-     background-color:#727477;
+.skin-black .left-side, .skin-black .main-sidebar, .skin-black .wrapper {
+    background-color:#34495E;
 }
- .skin-black .sidebar-menu > li.active > a, .skin-black .sidebar-menu > li:hover > a {
-     color:#fff;
-     background:#606164;
-     border-left-color:#d1351b;
+.skin-black .sidebar-menu > li.active > a, .skin-black .sidebar-menu > li:hover > a {
+    color:#fff;
+    background:#c8102e;
+    border-left-color:#66819E;
 }
- .skin-black .sidebar-menu > li > .treeview-menu {
-     margin:0 1px; 
-     background:#8a8c8f;
-     box-shadow:inset 0px 0px 7px #000000;
-     padding-bottom:2px 
+.skin-black .sidebar-menu > li > .treeview-menu {
+    margin:0 1px; 
+    background:#66819E;
+    box-shadow:inset 0px 0px 7px #000000;
+    padding-bottom:2px 
 }
- .skin-black .sidebar a {
-     color:#ffffff 
+.skin-black .sidebar a {
+    color:#ffffff 
 }
 .navbar-nav > .messages-menu > .dropdown-menu, .navbar-nav > .notifications-menu > .dropdown-menu, .navbar-nav > .tasks-menu > .dropdown-menu {
     width: 400px;
     padding: 0;
     margin: 10px;
     top: 100%;
-    background-color: #fefefee6;
+    background-color: #F8F9FA;
     box-shadow: 10px 10px 10px darkgrey;
 }
 .navbar-nav > .messages-menu > .dropdown-menu > li.header, .navbar-nav > .notifications-menu > .dropdown-menu > li.header, .navbar-nav > .tasks-menu > .dropdown-menu > li.header {
@@ -277,9 +275,9 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
     border-top-right-radius: 0px;
     border-bottom-right-radius: 0;
     border-bottom-left-radius: 0;
-    background-color: #d1351b;
+    background-color: #c8102e;
     padding: 7px 10px;
-    border-bottom: 1px solid #d1351be6;
+    border-bottom: 1px solid #c8102e;
     color: #ffffff;
     font-size: 14px;
 }
@@ -291,27 +289,35 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
     overflow-x: hidden;
 }
 .navbar-nav > .notifications-menu > .dropdown-menu > li .menu > li > a {
-    color: #000000;
+    color: #2C3E50;
     overflow: hidden;
     white-space: normal;
 }
- #coxreg {
-     overflow-y: auto;
-     max-height: 200px;
-     background-color: lightgrey;
-     box-shadow: inset 0px -5px 5px darkgrey 
+#coxreg {
+    overflow-y: auto;
+    max-height: 200px;
+    background-color: #F8F9FA;
+    box-shadow: inset 0px -5px 5px #34495E 
 }
- #coxreg_aic {
-     background-color: lightgrey 
+#coxreg_aic {
+    background-color: #F8F9FA 
 }
- #logreg {
-     overflow-y: auto;
-     max-height: 200px;
-     background-color: lightgrey;
-     box-shadow: inset 0px -5px 5px darkgrey 
+#logreg {
+    overflow-y: auto;
+    max-height: 200px;
+    background-color: #F8F9FA;
+    box-shadow: inset 0px -5px 5px #34495E 
 }
- #logreg_aic {
-     background-color: lightgrey 
+#logreg_aic {
+    background-color: #F8F9FA 
+}
+.content-wrapper {
+    background-color: #F8F9FA !important;
+    color: #2C3E50 !important;
+}
+
+.skin-black .content-wrapper, .skin-black .right-side {
+    background-color: #F8F9FA;
 }
 .shiny-output-error { 
     visibility: hidden; 
@@ -320,10 +326,11 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
     visibility: hidden; 
 }
 
-/* Estilos para filtros integrados en gráficos */
 .plot-filters {
     max-width: 160px;
     font-size: 11px;
+    color: #2C3E50;
+    font-family: 'Roboto', sans-serif;
 }
 
 .plot-filters .form-group {
@@ -334,6 +341,7 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
     font-size: 10px;
     min-height: 25px;
     padding: 3px 8px;
+    color: #2C3E50;
 }
 
 .plot-filters .slider {
@@ -355,6 +363,7 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
 
 .plot-filters .checkbox {
     margin: 2px 0;
+    color: #2C3E50;
 }
 
 .plot-filters .checkbox input {
@@ -365,17 +374,16 @@ section.sidebar .shiny-bound-input.action-button, section.sidebar .shiny-bound-i
     font-size: 9px;
     padding: 2px 5px;
     height: 25px;
+    color: #2C3E50;
 }
 
-/* Hacer los boxes con filtros más responsivos */
 .content-wrapper .box {
     position: relative;
     overflow: visible;
+    background-color: #F8F9FA;
 }
 
-/* Asegurar que los filtros estén siempre visibles */
 .plot-filters:hover {
     background: rgba(255,255,255,0.95) !important;
     border: 1px solid #bbb !important;
 }
- 

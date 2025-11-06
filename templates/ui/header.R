@@ -3,7 +3,7 @@
 # =============================================================================
 
 create_dashboard_header <- function(config) {
-  dashboardHeader(
+  shinydashboard::dashboardHeader(
     title = span(img(src = "radar.svg", height = 35), config$header_title),
     titleWidth = config$sidebar_width,
     dropdownMenu(

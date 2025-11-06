@@ -4,10 +4,14 @@ library(shinyjs)
 library(rintrojs)
 library(shinyBS)
 library(shinyWidgets)
+library(shinycssloaders)
 library(DT)
 
 
 source("config.R")
+source("ui/navbar.R")
+source("ui/sidebar.R")
+source("server/dynamic_server.R")
 
 
 ui <- dashboardPage(
@@ -15,8 +19,8 @@ ui <- dashboardPage(
   title = DASHBOARD_CONFIG$title,
 
   dashboardHeader(
-    title = span(img(src = "Logo_GV_Sanidad_negro.png", height = 50), ""),
-    titleWidth = 230,
+    title = span(img(src = "sankey.svg", height = 35), "Reparto Costes"),
+    titleWidth = 300,
     dropdownMenu(
       type = "notifications",
       headerText = strong("Ayuda"),
@@ -39,20 +43,22 @@ ui <- dashboardPage(
     )
   ),
 
-  dashboardSidebar( # <-- Sidebar obligatorio
-    sidebarMenu(
-      width = DASHBOARD_CONFIG$sidebar_width
-    )
-  ),
+  create_dashboard_sidebar(DASHBOARD_CONFIG),
   dashboardBody(
     tags$head(
       tags$link(
         rel = "stylesheet", 
         type = "text/css", 
-        href = "radar_style.css")
+        href = "custom_health.css"),
+      tags$link(
+        rel = "stylesheet",
+        href = "https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+      )
     ),
     useShinyjs(),
-    introjsUI()
+    introjsUI(),
+
+    create_bar(PANEL_DEFINITIONS)
   )
 )
 
@@ -60,6 +66,9 @@ server <- function(input, output, session){
     observe({
     introjs(session)
   })
+
+  # Create dynamic server components
+  active_panel <- create_dynamic_server(input, output, session, PANEL_DEFINITIONS, DEFAULT_PANEL)
 }
 
 # =============================================================================

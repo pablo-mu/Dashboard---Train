@@ -3,7 +3,7 @@
 # =============================================================================
 
 create_main_buttons <- function(panel_definitions) {
-  fluidRow(
+  shiny::fluidRow(
     column(
       width = 12,
       introBox(
