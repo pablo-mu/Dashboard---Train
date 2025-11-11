@@ -6,12 +6,16 @@ library(shinyBS)
 library(shinyWidgets)
 library(shinycssloaders)
 library(DT)
+library(data.table)
+library(dplyr)
 
 
 source("config.R")
 source("ui/navbar.R")
 source("ui/sidebar.R")
+source("modules/lib_reparto.R")  # ¡IMPORTANTE! Cargar lib_reparto antes
 source("server/dynamic_server.R")
+
 
 
 ui <- dashboardPage(
@@ -67,8 +71,13 @@ server <- function(input, output, session){
     introjs(session)
   })
 
-  # Create dynamic server components
-  active_panel <- create_dynamic_server(input, output, session, PANEL_DEFINITIONS, DEFAULT_PANEL)
+  # Create dynamic server components  
+  server_components <- create_dynamic_server(input, output, session, PANEL_DEFINITIONS, DEFAULT_PANEL)
+  
+  # Extract components for use in modules
+  active_panel <- server_components$active_panel
+  datos_raw <- server_components$datos_raw
+  filters <- server_components$filters
 }
 
 # =============================================================================

@@ -1,21 +1,27 @@
 create_dashboard_sidebar <- function(config) {
   shinydashboard::dashboardSidebar(
     width = config$sidebar_width,
+    
     introBox(
-      data.step = 3, 
+      data.step = 4, 
       data.intro = "Panel de filtros para generar y personalizar los gráficos de reparto de costes.",
       div(class = "inlay", style = "height:15px;width:100%;background-color: #ecf0f5;"),
+      
+      
+    # --- Botón de carga de datos / filtros dinámico ---
+    introBox(
+      data.step = 5, 
+      data.intro = "Primero carga los datos, después configura los filtros para generar los gráficos.",
+      div(id = "sidebar_button_top",
+          uiOutput("dynamic_action_btn")
+      )
+    ),
+
+    # (Opcional) Separador visual
+    div(class = "inlay", style = "height:15px;width:100%;background-color: #ecf0f5;"),
+
       sidebarMenu(
-        id = "sidebar_tab",
-        introBox(
-          data.step = 4, 
-          data.intro = "Pulsa para generar los gráficos.",
-          div(id = "sidebar_button",
-              uiOutput("dynamic_filter_btn")
-          )
-        ),
-        div(class = "inlay", style = "height:15px;width:100%;background-color: #ecf0f5;"),
-        
+        id = "sidebar_tab",        
         # Centro Gestor - Filtro principal
         menuItem("CENTRO GESTOR", tabName = "centro_gestor", icon = icon("building"),
           uiOutput("centro_gestor_filter"),
