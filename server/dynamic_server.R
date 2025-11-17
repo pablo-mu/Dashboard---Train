@@ -13,6 +13,10 @@ create_dynamic_server <- function(input, output,
   source("modules/lib_reparto.R")
   #source("server/data_server.R")
   source("server/filters_server.R")
+  
+  # Cargar módulos de Sankey
+  source("modules/sankey/sankey_ui.R")
+  source("modules/sankey/sankey_server.R")
 
 
   
@@ -26,6 +30,19 @@ create_dynamic_server <- function(input, output,
     default_panel <- names(panel_definitions)[1]
   }
   active_panel <- shiny::reactiveVal(default_panel)
+  
+  # Observadores para cambiar de panel cuando se hace click en los botones del navbar
+  shiny::observeEvent(input$Sankey, {
+    active_panel("sankey")
+  })
+  
+  shiny::observeEvent(input$`Matriz Costes`, {
+    active_panel("matriz_costes")
+  })
+  
+  shiny::observeEvent(input$Diagnostics, {
+    active_panel("diagnostics")
+  })
   
   # Estado de carga de datos
   datos_loaded <- shiny::reactiveVal(FALSE)
@@ -133,38 +150,40 @@ create_dynamic_server <- function(input, output,
     }
   })
   
+  # Inicializar servidor de Sankey
+  sankey_data <- create_sankey_server(input, output, session, datos_raw, active_panel)
   
   
-
-  # Renderizamos el contenido principal según el panel activo
-  output$dynamic_content <- shiny::renderUI({
+  # Renderizar contenido de cada panel
+  output$sankey_content <- shiny::renderUI({
+    create_sankey_content()
+  })
+  
+  output$matriz_costes_content <- shiny::renderUI({
+    create_matriz_costes_content()
+  })
+  
+  output$diagnostics_content <- shiny::renderUI({
+    create_diagnostics_content()
+  })
+  
+  # Controlar visibilidad de paneles según active_panel
+  observe({
     panel <- active_panel()
-
-    tagList(
-      switch(panel,
-        "sankey" = create_sankey_content(),
-        "matriz_costes" = create_matriz_costes_content(),
-        "diagnostics" = create_diagnostics_content(),
-        # Contenido por defecto
-        tagList(
-          fluidRow(
-            introBox(
-              box(title = "Panel General", status = "primary", solidHeader = TRUE, width = 12,
-                  h3("Bienvenido al Dashboard Reparto Costes"),
-                  p("Selecciona una sección usando los botones superiores para ver el contenido específico:"),
-                  tags$ul(
-                    tags$li(strong("SANKEY:"), " Diagrama de flujo de costes entre orígenes y destinos a lo largo de las fases."),
-                    tags$li(strong("MATRIZ DE COSTES:"), "Matriz detallada de costes entre orígenes y destinos."),
-                    tags$li(strong("DIAGNOSTICS:"), "Detalle y análisis de los repartos de costes.")
-                  )
-              ),
-              data.step = 5, data.intro = "Panel principal del dashboard."
-            )
-          )
-        )
-      ),
-      uiOutput("apply_filters_btn") # Agregamos el botón aquí
-    )
+    
+    # Ocultar todos los paneles
+    shinyjs::hide("sankey_panel")
+    shinyjs::hide("matriz_costes_panel")
+    shinyjs::hide("diagnostics_panel")
+    
+    # Mostrar solo el panel activo
+    if (panel == "sankey") {
+      shinyjs::show("sankey_panel")
+    } else if (panel == "matriz_costes") {
+      shinyjs::show("matriz_costes_panel")
+    } else if (panel == "diagnostics") {
+      shinyjs::show("diagnostics_panel")
+    }
   })
 
   # Renderizamos el botón de aplicar filtros directamente en la interfaz
@@ -220,18 +239,7 @@ create_dynamic_server <- function(input, output,
 # ============================================================================
 # FUNCIONES AUXILIARES PARA CONTENIDOS DE PANELES
 # ============================================================================
-
-#' Crear contenido del panel Sankey
-create_sankey_content <- function() {
-  tagList(
-    fluidRow(
-      box(title = "Diagrama Sankey", status = "primary", solidHeader = TRUE, width = 12,
-          h4("Diagrama de flujo de reparto de costes"),
-          p("Configure los filtros y presione 'Generar' para ver el diagrama Sankey.")
-      )
-    )
-  )
-}
+# Note: create_sankey_content is now in modules/sankey/sankey_ui.R
 
 #' Crear contenido del panel Matriz de Costes  
 create_matriz_costes_content <- function() {
@@ -260,17 +268,7 @@ create_diagnostics_content <- function() {
 # ============================================================================
 # FUNCIONES AUXILIARES PARA FILTROS ESPECÍFICOS DE PANELES
 # ============================================================================
-
-#' Crear filtros específicos del panel Sankey
-create_sankey_filters <- function() {
-  tagList(
-    h4("Configuración Sankey"),
-    p("Filtros específicos para el diagrama Sankey."),
-    checkboxInput("sankey_animated", "Animación", value = TRUE),
-    sliderInput("sankey_width", "Ancho del diagrama:", 
-               min = 600, max = 1200, value = 900)
-  )
-}
+# Note: create_sankey_filters is now in modules/sankey/sankey_filters.R
 
 #' Crear filtros específicos del panel Matriz de Costes
 create_matriz_costes_filters <- function() {
