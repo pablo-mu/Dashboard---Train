@@ -2,6 +2,106 @@
 # SANKEY SERVER LOGIC
 # ============================================================================
 
+#' Asignar color a parámetro en enlaces Sankey
+#' @param parametro Parámetro de reparto
+#' @param tipo_reparto Tipo de reparto
+#' @return String con color RGBA
+asignar_color_parametro <- function(parametro, tipo_reparto) {
+  # Sin parámetro: color gris uniforme
+  if (is.na(parametro) || parametro == "" || parametro == "NO PARAM") {
+    return("rgba(150, 150, 150, 0.25)")
+  }
+  
+  # Colores vibrantes para diferentes parámetros
+  parametro_hash <- sum(utf8ToInt(as.character(parametro))) %% 12
+  
+  colores <- c(
+    "rgba(59, 130, 246, 0.5)",   # Azul moderno
+    "rgba(16, 185, 129, 0.5)",   # Verde esmeralda
+    "rgba(245, 158, 11, 0.5)",   # Ámbar
+    "rgba(239, 68, 68, 0.5)",    # Rojo coral
+    "rgba(168, 85, 247, 0.5)",   # Púrpura
+    "rgba(236, 72, 153, 0.5)",   # Rosa
+    "rgba(20, 184, 166, 0.5)",   # Turquesa
+    "rgba(251, 146, 60, 0.5)",   # Naranja
+    "rgba(139, 92, 246, 0.5)",   # Violeta
+    "rgba(34, 197, 94, 0.5)",    # Verde lima
+    "rgba(248, 113, 113, 0.5)",  # Rojo claro
+    "rgba(96, 165, 250, 0.5)"    # Azul cielo
+  )
+  
+  return(colores[parametro_hash + 1])
+}
+
+#' Función auxiliar para crear el plot de Sankey (reutilizable)
+#' @param sankey Datos del sankey (lista con nodes, links, mostrar_parametro, etc.)
+#' @param font_size Tamaño de fuente para el diagrama
+#' @return Objeto plotly
+crear_plot_sankey <- function(sankey, font_size = 11) {
+  if (is.null(sankey)) {
+    return(plotly_empty() %>% 
+      layout(title = list(
+        text = "Configure los filtros y presione 'Generar'",
+        font = list(size = 18)
+      ))
+    )
+  }
+  
+  # Determinar colores según si se muestra parámetro o no
+  if (sankey$mostrar_parametro && "parametro" %in% names(sankey$links)) {
+    # Aplicar colores por parámetro
+    link_colors <- sapply(1:nrow(sankey$links), function(i) {
+      asignar_color_parametro(
+        sankey$links$parametro[i],
+        sankey$links$tipo_reparto[i]
+      )
+    })
+    
+    # Hover template con información de parámetro
+    hover_template <- paste0(
+      "Importe: %{value:,.2f}€<br>",
+      "Parámetro: ", ifelse(is.na(sankey$links$parametro) | sankey$links$parametro == "", 
+                           "Sin parámetro", 
+                           sankey$links$parametro),
+      "<extra></extra>"
+    )
+  } else {
+    # Colores por defecto (gris uniforme)
+    link_colors <- "rgba(100, 116, 139, 0.3)"
+    hover_template <- "Importe: %{value:,.2f}€<extra></extra>"
+  }
+  
+  node_colors <- "rgba(31, 119, 180, 0.8)"
+  
+  plot_ly(
+    type = "sankey",
+    orientation = "h",
+    arrangement = "snap",
+    node = list(
+      label = sankey$nodes$name,
+      color = node_colors,
+      pad = 18,
+      thickness = 25,
+      line = list(color = "rgba(255, 255, 255, 0.8)", width = 1.5),
+      hovertemplate = "%{label}<extra></extra>"
+    ),
+    link = list(
+      source = sankey$links$source,
+      target = sankey$links$target,
+      value = sankey$links$value,
+      color = link_colors,
+      hovertemplate = hover_template
+    )
+  ) %>%
+    layout(
+      font = list(family = "Inter, sans-serif", size = font_size, color = "#1e293b"),
+      paper_bgcolor = "rgba(0,0,0,0)",
+      plot_bgcolor = "rgba(0,0,0,0)",
+      margin = list(l = 10, r = 10, t = 30, b = 10)
+    ) %>%
+    config(displayModeBar = TRUE, displaylogo = FALSE)
+}
+
 #' Create Sankey server logic
 #' This function sets up all the reactive logic for the Sankey panel
 #' 
@@ -47,18 +147,74 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
       FALSE
     }
     
+    # ==========================================================================
+    # CAPTURAR FILTROS DEL SIDEBAR
+    # ==========================================================================
+    
+    # Centro Gestor
+    centro_gestor_val <- if (!is.null(input$centro_gestor) && input$centro_gestor != "") {
+      input$centro_gestor
+    } else {
+      NULL
+    }
+    
+    # Nivel de agregación
+    nivel_agregacion_val <- if (!is.null(input$nivel_agregacion)) {
+      input$nivel_agregacion
+    } else {
+      "cac"
+    }
+    
+    # Origen (CAC/SUBCAC según el nivel)
+    cac_subcac_origen_val <- if (!is.null(input$origen) && length(input$origen) > 0 && input$origen[1] != "") {
+      input$origen
+    } else {
+      NULL
+    }
+    
+    # Fases a incluir
+    fases_incluir_val <- if (!is.null(input$fases_filter) && length(input$fases_filter) > 0) {
+      as.numeric(input$fases_filter)
+    } else {
+      c(1, 2, 3)
+    }
+    
+    # Mostrar estáticos (del sidebar) - invertir lógica para excluir_estaticos
+    # Si mostrar_estaticos = TRUE -> excluir_estaticos = FALSE
+    # Si mostrar_estaticos = FALSE -> excluir_estaticos = TRUE
+    excluir_estaticos_val <- if (!is.null(input$mostrar_estaticos)) {
+      !input$mostrar_estaticos
+    } else {
+      TRUE  # Por defecto, excluir estáticos
+    }
+    
+    # ==========================================================================
+    # CAPTURAR FILTROS DEL MODAL (si existen)
+    # ==========================================================================
+    
+    # El checkbox excluir_estaticos del modal (si existe) sobrescribe el del sidebar
+    if (!is.null(input$modal_excluir_estaticos)) {
+      # En el modal: "Mostrar Movimientos Estáticos" 
+      # Si está marcado (TRUE) -> queremos MOSTRAR -> excluir_estaticos = FALSE
+      excluir_estaticos_val <- !input$modal_excluir_estaticos
+    }
+    
+    # El checkbox mostrar_parametro del modal (si existe) sobrescribe el del panel
+    if (!is.null(input$modal_mostrar_parametro)) {
+      mostrar_parametro_actual <- input$modal_mostrar_parametro
+    }
+    
     tryCatch({
-      # Por ahora, construir enlaces básicos sin filtros complejos
-      # Puedes agregar más filtros del modal aquí
       source("modules/sankey/sankey.R")
       
+      # Construir enlaces con los filtros reales
       enlaces_df <- construir_enlaces_sankey(
         datos = datos,
-        centro_gestor = NULL,  # Aquí puedes agregar filtros del modal
-        nivel_agregacion = "cac",
-        cac_subcac_origen = NULL,
-        fases_incluir = c(1, 2, 3),
-        excluir_estaticos = TRUE,
+        centro_gestor = centro_gestor_val,
+        nivel_agregacion = nivel_agregacion_val,
+        cac_subcac_origen = cac_subcac_origen_val,
+        fases_incluir = fases_incluir_val,
+        excluir_estaticos = excluir_estaticos_val,
         verbose = TRUE
       )
       
@@ -184,48 +340,15 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
   # ========================================================================
   
   output$sankey_diagram <- renderPlotly({
-    sankey <- sankey_data()
-    
-    if (is.null(sankey)) {
-      return(plotly_empty() %>% 
-        layout(title = list(
-          text = "Configure los filtros y presione 'Generar'",
-          font = list(size = 18)
-        ))
-      )
-    }
-    
-    # Colores básicos por defecto
-    link_colors <- "rgba(100, 116, 139, 0.3)"
-    node_colors <- "rgba(31, 119, 180, 0.8)"
-    
-    plot_ly(
-      type = "sankey",
-      orientation = "h",
-      arrangement = "snap",
-      node = list(
-        label = sankey$nodes$name,
-        color = node_colors,
-        pad = 18,
-        thickness = 25,
-        line = list(color = "rgba(255, 255, 255, 0.8)", width = 1.5),
-        hovertemplate = "%{label}<extra></extra>"
-      ),
-      link = list(
-        source = sankey$links$source,
-        target = sankey$links$target,
-        value = sankey$links$value,
-        color = link_colors,
-        hovertemplate = "Importe: %{value:,.2f}€<extra></extra>"
-      )
-    ) %>%
-      layout(
-        font = list(family = "Inter, sans-serif", size = 11, color = "#1e293b"),
-        paper_bgcolor = "rgba(0,0,0,0)",
-        plot_bgcolor = "rgba(0,0,0,0)",
-        margin = list(l = 10, r = 10, t = 30, b = 10)
-      ) %>%
-      config(displayModeBar = TRUE, displaylogo = FALSE)
+    crear_plot_sankey(sankey_data(), font_size = 11)
+  })
+  
+  # ========================================================================
+  # OUTPUT - DIAGRAMA SANKEY EXPANDIDO
+  # ========================================================================
+  
+  output$sankey_diagram_expanded <- renderPlotly({
+    crear_plot_sankey(sankey_data(), font_size = 11)
   })
   
   # ========================================================================
@@ -303,44 +426,83 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
     sankey <- sankey_data()
     if (is.null(sankey)) return()
     
+    # Mostrar el diagrama expandido con ID diferente
     showModal(modalDialog(
-      renderPlotly({
-        link_colors <- "rgba(100, 116, 139, 0.3)"
-        node_colors <- "rgba(31, 119, 180, 0.8)"
-        
-        plot_ly(
-          type = "sankey",
-          orientation = "h",
-          arrangement = "snap",
-          node = list(
-            label = sankey$nodes$name,
-            color = node_colors,
-            pad = 18,
-            thickness = 25,
-            line = list(color = "rgba(255, 255, 255, 0.8)", width = 1.5),
-            hovertemplate = "%{label}<extra></extra>"
-          ),
-          link = list(
-            source = sankey$links$source,
-            target = sankey$links$target,
-            value = sankey$links$value,
-            color = link_colors,
-            hovertemplate = "Importe: %{value:,.2f}€<extra></extra>"
-          )
-        ) %>%
-          layout(
-            font = list(family = "Inter, sans-serif", size = 14, color = "#1e293b"),
-            paper_bgcolor = "rgba(0,0,0,0)",
-            plot_bgcolor = "rgba(0,0,0,0)",
-            margin = list(l = 10, r = 10, t = 30, b = 10)
-          ) %>%
-          config(displayModeBar = TRUE, displaylogo = FALSE)
-      }, height = 800),
+      title = NULL,
+      plotlyOutput("sankey_diagram_expanded", width = "100%"),
       easyClose = TRUE,
-      size = "l",
+      size = "xl",
       footer = NULL
     ))
   })
+  
+  # ========================================================================
+  # OBSERVADOR PARA EXPANDIR TABLA DE ENLACES
+  # ========================================================================
+  
+  observeEvent(input$expand_enlaces_table, {
+    sankey <- sankey_data()
+    if (is.null(sankey)) return()
+    
+    enlaces <- as.data.frame(sankey$enlaces_detallados)
+    enlaces$value_formatted <- paste0(formatC(enlaces$value, format = "f", big.mark = " ", digits = 2), "€")
+    
+    enlaces_display <- enlaces %>%
+      select(
+        Fase = fase,
+        Origen = source,
+        Destino = target,
+        Tipo = tipo_reparto,
+        Parámetro = parametro,
+        Importe = value_formatted
+      )
+    
+    showModal(modalDialog(
+      title = "Enlaces Detallados - Vista Expandida",
+      div(
+        style = "height: 600px; width: 100%; overflow: auto;",
+        DT::dataTableOutput("sankey_enlaces_table_expanded", width = "100%")
+      ),
+      easyClose = TRUE,
+      size = "xl",
+      footer = NULL
+    ))
+    
+    output$sankey_enlaces_table_expanded <- DT::renderDataTable({
+      DT::datatable(
+        enlaces_display,
+        options = list(
+          scrollX = TRUE,
+          responsive = TRUE,
+          autoWidth = FALSE,
+          pageLength = 25,
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')
+        ),
+        rownames = FALSE,
+        class = "stripe hover compact"
+      )
+    })
+  })
+  
+  # ========================================================================
+  # DOWNLOAD HANDLER - DIAGRAMA SANKEY
+  # ========================================================================
+  
+  output$download_sankey <- downloadHandler(
+    filename = function() {
+      paste0("sankey_diagram_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".html")
+    },
+    content = function(file) {
+      sankey <- sankey_data()
+      if (is.null(sankey)) {
+        showNotification("No hay diagrama para descargar", type = "warning")
+        return()
+      }
+      
+      plot <- crear_plot_sankey(sankey, font_size = 14)
+      htmlwidgets::saveWidget(plot, file, selfcontained = TRUE)
+    }
+  )
   
   return(sankey_data)
 }

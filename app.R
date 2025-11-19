@@ -55,7 +55,7 @@ ui <- dashboardPage(
       tags$link(
         rel = "stylesheet", 
         type = "text/css", 
-        href = "radar.css"),
+        href = "custom_health2.css"),
       tags$link(
         rel = "stylesheet",
         href = "https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"

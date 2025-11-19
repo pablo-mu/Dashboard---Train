@@ -17,6 +17,8 @@ create_dynamic_server <- function(input, output,
   # Cargar módulos de Sankey
   source("modules/sankey/sankey_ui.R")
   source("modules/sankey/sankey_server.R")
+  source("modules/matriz/matriz_server.R")
+  source("modules/matriz/matriz_ui.R")
 
 
   
@@ -152,7 +154,11 @@ create_dynamic_server <- function(input, output,
   
   # Inicializar servidor de Sankey
   sankey_data <- create_sankey_server(input, output, session, datos_raw, active_panel)
+
+  # Inicializar servidor de Matriz de Costes
+  matriz_data <- create_matriz_server(input, output, session, datos_raw, active_panel)
   
+
   
   # Renderizar contenido de cada panel
   output$sankey_content <- shiny::renderUI({
@@ -160,7 +166,7 @@ create_dynamic_server <- function(input, output,
   })
   
   output$matriz_costes_content <- shiny::renderUI({
-    create_matriz_costes_content()
+    create_matriz_content()
   })
   
   output$diagnostics_content <- shiny::renderUI({
@@ -186,11 +192,6 @@ create_dynamic_server <- function(input, output,
     }
   })
 
-  # Renderizamos el botón de aplicar filtros directamente en la interfaz
-  output$apply_filters_btn <- shiny::renderUI({
-    actionButton("apply_filters", "Generar", class = "btn-primary")
-  })
-
   # Modal para generar diagrama y aplicar filtros propios de cada panel
   shiny::observeEvent(input$show_filters, {
     # Solo mostrar modal si los datos están cargados
@@ -207,7 +208,7 @@ create_dynamic_server <- function(input, output,
 
     modal_content <- switch(panel,
       "sankey" = create_sankey_filters(),
-      "matriz_costes" = create_matriz_costes_filters(),
+      "matriz_costes" = create_matriz_filters(),
       "diagnostics" = create_diagnostics_filters(),
       list(
         h4("Filtros no disponibles"),
@@ -216,15 +217,42 @@ create_dynamic_server <- function(input, output,
     )
 
     showModal(modalDialog(
-      title = paste("Filtros -", toupper(panel)),
-      modal_content,
+      title = NULL,
+      div(
+        style = "padding: 20px;",
+        h3(paste("Configuración -", 
+                 switch(panel,
+                        "sankey" = "Diagrama Sankey",
+                        "matriz_costes" = "Matriz de Costes",
+                        "diagnostics" = "Diagnósticos",
+                        toupper(panel))),
+           style = "margin-top: 0; margin-bottom: 20px; color: #2c3e50; font-weight: 600;"),
+        modal_content
+      ),
       easyClose = TRUE,
       size = "l",
-      footer = tagList(
-        modalButton("Cerrar"),
-        actionButton("apply_filters", "Generar", class = "btn-primary")
+      footer = div(
+        style = "display: flex; justify-content: flex-end; gap: 10px; padding: 15px 20px; background-color: #f8f9fa; border-top: 1px solid #dee2e6;",
+        actionButton("modal_cancel", "Cancelar", 
+                    icon = icon("times"),
+                    class = "btn btn-primary",
+                    style = "padding: 10px 25px; font-size: 14px; color: white;"),
+        actionButton("apply_filters", "Generar Diagrama", 
+                    icon = icon("chart-line"),
+                    class = "btn btn-primary",
+                    style = "background-color: #c8102e; border: none; padding: 10px 30px; font-size: 14px; font-weight: 600;",
+                    onclick = "Shiny.setInputValue('apply_filters', Math.random());")
       )
     ))
+  })
+  
+  # Cerrar modal al presionar cancelar
+  observeEvent(input$modal_cancel, {
+    removeModal()
+  })
+
+  observeEvent(input$apply_filters, {
+    removeModal()
   })
   
   # Retornar datos para su uso en otros módulos

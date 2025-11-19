@@ -13,7 +13,7 @@ create_filters_server <- function(input, output, session, datos_raw) {
   # ========================================
   # FILTRO CENTRO GESTOR
   # ========================================
-  output$centro_gestor_filter <- renderUI({
+  output$centro_gestor_filter <- shiny::renderUI({
     datos <- datos_raw()
     if (is.null(datos)) return(NULL)
     
@@ -23,7 +23,7 @@ create_filters_server <- function(input, output, session, datos_raw) {
     selectInput(
       inputId = "centro_gestor",
       label = "Centro Gestor*:",
-      choices = c("Seleccione..." = "", centros),
+      choices = c("Todos" = "", centros),
       selected = ""
     )
   })
@@ -31,7 +31,7 @@ create_filters_server <- function(input, output, session, datos_raw) {
   # ========================================
   # FILTRO ORIGEN (DEPENDE DE NIVEL Y CENTRO)
   # ========================================
-  output$origen_filter <- renderUI({
+  output$origen_filter <- shiny::renderUI({
     datos <- datos_raw()
     if (is.null(datos)) return(NULL)
     
@@ -40,8 +40,12 @@ create_filters_server <- function(input, output, session, datos_raw) {
       datos <- datos[datos$ZCENT_GEST == input$centro_gestor, ]
     }
     
-    # Por ahora usar nivel por defecto "cac" (se puede hacer dinámico después)
-    nivel_agregacion <- "cac"  # input$nivel_agregacion si existe
+    # Usar el nivel de agregación seleccionado en el radiobutton
+    nivel_agregacion <- if (!is.null(input$nivel_agregacion)) {
+      input$nivel_agregacion
+    } else {
+      "cac"  # valor por defecto
+    }
     
     if (nivel_agregacion == "subcac") {
       origenes <- sort(unique(datos$ZCT_SUBCAC_E))
@@ -73,7 +77,7 @@ create_filters_server <- function(input, output, session, datos_raw) {
   # ========================================
   # FILTRO DESTINO (SIMILAR AL ORIGEN)
   # ========================================
-  output$destino_filter <- renderUI({
+  output$destino_filter <- shiny::renderUI({
     datos <- datos_raw()
     if (is.null(datos)) return(NULL)
     
@@ -82,8 +86,12 @@ create_filters_server <- function(input, output, session, datos_raw) {
       datos <- datos[datos$ZCENT_GEST == input$centro_gestor, ]
     }
     
-    # Por ahora usar nivel por defecto "cac"
-    nivel_agregacion <- "cac"
+    # Usar el nivel de agregación seleccionado en el radiobutton
+    nivel_agregacion <- if (!is.null(input$nivel_agregacion)) {
+      input$nivel_agregacion
+    } else {
+      "cac"  # valor por defecto
+    }
     
     # Columnas de destino por fase
     cols_destino <- c(
@@ -141,7 +149,7 @@ create_filters_server <- function(input, output, session, datos_raw) {
   # ========================================
   # FILTRO MES
   # ========================================
-  output$mes_filter <- renderUI({
+  output$mes_filter <- shiny::renderUI({
     datos <- datos_raw()
     if (is.null(datos)) return(NULL)
     
@@ -160,7 +168,7 @@ create_filters_server <- function(input, output, session, datos_raw) {
   # ========================================
   # FILTRO AÑO
   # ========================================
-  output$anyo_filter <- renderUI({
+  output$anyo_filter <- shiny::renderUI({
     datos <- datos_raw()
     if (is.null(datos)) return(NULL)
     
@@ -179,7 +187,7 @@ create_filters_server <- function(input, output, session, datos_raw) {
   # ========================================
   # BOTÓN RESET FILTROS
   # ========================================
-  observeEvent(input$reset_filters, {
+  shiny::observeEvent(input$reset_filters, {
     updateSelectInput(session, "centro_gestor", selected = "")
     updateSelectInput(session, "origen", selected = "")
     updateSelectInput(session, "destino", selected = "")

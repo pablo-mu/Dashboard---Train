@@ -1,76 +1,50 @@
 # ============================================================================
-# SANKEY PANEL UI
+# MATRIZ PANEL UI
 # ============================================================================
 
-#' Create Sankey panel content
-#' Interactive Sankey diagram with modern styling following radar.R pattern
+#' Create MATRIZ panel content
+#' Interactive MATRIZ diagram with modern styling following radar.R pattern
 #' 
 #' @return A tagList with the panel UI structure
-create_sankey_content <- function() {
+#' 
+create_matriz_content <- function() {
   shiny::tagList(
-    # Info Boxes
-    fluidRow(
-      infoBoxOutput("sankey_info_nodos", width = 4),
-      infoBoxOutput("sankey_info_enlaces", width = 4),
-      infoBoxOutput("sankey_info_importe", width = 4)
-    ),
-    
-    # Diagrama Sankey con controles
     fluidRow(
       column(
         width = 12,
         div(
           style = "position: relative",
           tabBox(
-            id = "sankey_box",
+            id = "matriz_box",
             width = NULL,
             height = 700,
             tabPanel(
-              title = "Diagrama Sankey",
-              
-              # Controles en esquina inferior izquierda
-              div(
-                style = "position: absolute; left: 0.5em; bottom: 0.5em;",
-                dropdown(
-                  checkboxInput("sankey_mostrar_parametro", 
-                               "Incluir parámetro", 
-                               value = FALSE),
-                  size = "xs",
-                  icon = icon("gear", class = "opt"),
-                  style = "fill",
-                  up = TRUE
-                )
-              ),
-              
-              # Diagrama con spinner
+              title = "Matriz de Reparto Costes",
               withSpinner(
-                plotlyOutput("sankey_diagram", height = 600),
+                plotlyOutput("matriz_diagram", height = 600),
                 type = 4,
                 color = "#d33724",
                 size = 0.7
               )
             ),
-            
             # Botón de expandir (abajo derecha)
             div(
               style = "position: absolute; right: 0.5em; bottom: 0.5em;",
               actionBttn(
-                inputId = "expand_sankey",
+                inputId = "expand_matriz",
                 icon = icon("search-plus", class = "opt"),
                 style = "fill",
                 color = "danger",
                 size = "xs"
               )
             ),
-            
-            # Botón de descarga (abajo izquierda, al lado de config)
             div(
               style = "position: absolute; left: 4em; bottom: 0.5em;",
               dropdown(
                 tags$div(
                   style = "padding: 2px;",
                   downloadButton(
-                    outputId = "download_sankey",
+                    outputId = "download_matriz",
                     label = "Descargar",
                     style = "background-color: #c8102e; color: white; border: none; font-size: 11px; display: flex; align-items: center; gap: 5px; padding: 6px 12px;"
                   )
@@ -85,20 +59,35 @@ create_sankey_content <- function() {
         )
       )
     ),
-    
-    # Información y tablas en dos columnas
     fluidRow(
       column(
         width = 6,
         div(
           style = "position: relative",
           tabBox(
-            id = "sankey_info_box",
+            id = "matriz_tabla_larga",
             width = NULL,
             height = 500,
             tabPanel(
-              title = "Información del Diagrama",
-              verbatimTextOutput("sankey_info")
+              title = "Datos de la matriz (formato largo)",
+              div(
+                style = "overflow-x: auto;",
+                DT::dataTableOutput("matriz_table_larga"),
+                type = 4,
+                color = "#d33724",
+                size = 0.7
+              )
+            ),
+            # Botón de expandir
+            div(
+              style = "position: absolute; right: 0.5em; bottom: 0.5em;",
+              actionBttn(
+                inputId = "expand_matriz_larga",
+                icon = icon("search-plus", class = "opt"),
+                style = "fill",
+                color = "danger",
+                size = "xs"
+              )
             )
           )
         )
@@ -108,27 +97,24 @@ create_sankey_content <- function() {
         div(
           style = "position: relative",
           tabBox(
-            id = "sankey_enlaces_box",
+            id = "matriz_tabla_ancha",
             width = NULL,
             height = 500,
             tabPanel(
-              title = "Enlaces Detallados",
+              title = "Datos de la matriz (formato ancho)",
               div(
-                style = "overflow-x:auto; height: 400px;",
-                withSpinner(
-                  DT::dataTableOutput("sankey_enlaces_table"),
-                  type = 4,
-                  color = "#d33724",
-                  size = 0.5
-                )
+                style = "overflow-x: auto;",
+                DT::dataTableOutput("matriz_table_ancha"),
+                type = 4,
+                color = "#d33724",
+                size = 0.7
               )
             ),
-            
-            # Botón de expandir tabla
+            # Botón de expandir
             div(
               style = "position: absolute; right: 0.5em; bottom: 0.5em;",
               actionBttn(
-                inputId = "expand_enlaces_table",
+                inputId = "expand_matriz_ancha",
                 icon = icon("search-plus", class = "opt"),
                 style = "fill",
                 color = "danger",
@@ -142,32 +128,19 @@ create_sankey_content <- function() {
   )
 }
 
-
-# ============================================================================
-# SANKEY FILTERS
-# ============================================================================
-
-#' Create Sankey-specific filters UI
-#' This will be shown in the modal when the user clicks the filter button
-create_sankey_filters <- function() {
+create_matriz_filters <- function(){
   shiny::tagList(
-    h4("Configuración del Diagrama Sankey"),
+    h4("Configuración de la Matriz de Costes"),
     
     fluidRow(
       column(12,
         h5("Opciones de Visualización"),
-        helpText("Configure las opciones específicas para el diagrama de Sankey.")
+        helpText("Configure las opciones específicas para la matriz de costes.")
       )
     ),
     
     fluidRow(
-      column(6,
-        checkboxInput("modal_mostrar_parametro", 
-                     "Incluir parámetro en agregación", 
-                     value = FALSE),
-        helpText("Cuando esté activado, los enlaces se agruparán también por parámetro de reparto, mostrando más detalle.")
-      ),
-      column(6,
+      column(12,
         checkboxInput("modal_excluir_estaticos",
                       "Mostrar Movimientos Estáticos",
                       value = FALSE),
@@ -179,7 +152,7 @@ create_sankey_filters <- function() {
     
     fluidRow(
       column(12,
-        p(strong("Nota:"), "Los filtros generales (Centro Gestor, Nivel de Agregación, Fases, etc.) se aplican desde el panel lateral izquierdo.",
+        p(strong("Nota:"), "Los filtros generales (Centro Gestor, Nivel de Agregación, Origen, Destino, etc.) se aplican desde el panel lateral izquierdo.",
           style = "font-size: 11px; color: #666;")
       )
     )

@@ -25,17 +25,20 @@ create_dashboard_sidebar <- function(config) {
         # Centro Gestor - Filtro principal
         menuItem("CENTRO GESTOR", tabName = "centro_gestor", icon = icon("building"),
           uiOutput("centro_gestor_filter"),
-          helpText("Selecciona el centro gestor principal para el análisis")
+          div(style = "padding: 0 10px;",
+            helpText("Selecciona el centro gestor principal para el análisis", 
+                     style = "font-size: 11px; line-height: 1.3; word-wrap: break-word;")
+          )
         ),
         
         # Nivel de Agregación
         menuItem("NIVEL AGREGACIÓN", tabName = "agregacion", icon = icon("layer-group"),
           radioButtons("nivel_agregacion", "Nivel:", 
                        choices = list(
-                         "CAC Completo" = "cac",
+                         "CAC" = "cac",
                          "CAC (1 dígito)" = "cac1", 
                          "CAC (2 dígitos)" = "cac2",
-                         "Subcentro" = "subcac"
+                         "SUBCAC" = "subcac"
                        ), 
                        selected = "cac",
                        inline = FALSE)
@@ -45,9 +48,7 @@ create_dashboard_sidebar <- function(config) {
         menuItem("ORIGEN & DESTINO", tabName = "origen_destino", icon = icon("arrows-left-right"),
           uiOutput("origen_filter"),
           div(style = "margin-top: 10px;"),
-          uiOutput("destino_filter"),
-          div(style = "margin-top: 10px;"),
-          checkboxInput("mostrar_estaticos", "Incluir movimientos estáticos", value = TRUE)
+          uiOutput("destino_filter")
         ),
         
         # Filtros Temporales
@@ -65,8 +66,7 @@ create_dashboard_sidebar <- function(config) {
                                "Fase 3" = "3"
                              ),
                              selected = c("1", "2", "3"),
-                             inline = FALSE),
-          helpText("Selecciona las fases del proceso de reparto")
+                             inline = FALSE)
         ),
         
         # Opciones de Visualización
@@ -91,16 +91,16 @@ create_dashboard_sidebar <- function(config) {
         
         # Información de Ayuda
         menuItem("AYUDA", tabName = "ayuda", icon = icon("question-circle"),
-          div(style = "padding: 10px; font-size: 12px;",
+          div(style = "padding: 10px; font-size: 11px; line-height: 1.4;",
             h5("Instrucciones:", style = "font-weight: bold; margin-bottom: 10px;"),
-            p("1. Selecciona un Centro Gestor"),
-            p("2. Configura el nivel de agregación"),
-            p("3. Ajusta filtros temporales (opcional)"),
-            p("4. Selecciona las fases a mostrar"),
-            p("5. Haz clic en 'Generar Diagrama'"),
+            p("1. Selecciona un Centro Gestor", style = "margin: 3px 0; word-wrap: break-word;"),
+            p("2. Configura el nivel de agregación", style = "margin: 3px 0; word-wrap: break-word;"),
+            p("3. Ajusta filtros temporales (opcional)", style = "margin: 3px 0; word-wrap: break-word;"),
+            p("4. Selecciona las fases a mostrar", style = "margin: 3px 0; word-wrap: break-word;"),
+            p("5. Haz clic en 'Generar Diagrama'", style = "margin: 3px 0; word-wrap: break-word;"),
             hr(),
-            p(strong("Nota:"), "El Centro Gestor es obligatorio para generar el diagrama.",
-              style = "font-size: 11px; color: #666;")
+            p(strong("Nota:"), " El Centro Gestor es obligatorio para generar el diagrama.",
+              style = "font-size: 10px; color: #e6e6e6ff; margin: 3px 0; word-wrap: break-word;")
           )
         )
       )
