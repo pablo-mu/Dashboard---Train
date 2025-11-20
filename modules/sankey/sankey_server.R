@@ -172,6 +172,27 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
       NULL
     }
     
+    # Destino (CAC/SUBCAC según el nivel)
+    cac_subcac_destino_val <- if (!is.null(input$destino) && length(input$destino) > 0 && input$destino[1] != "") {
+      input$destino
+    } else {
+      NULL
+    }
+    
+    # Mes
+    mes_val <- if (!is.null(input$mes) && length(input$mes) > 0 && input$mes[1] != "") {
+      as.numeric(input$mes)
+    } else {
+      NULL
+    }
+    
+    # Año
+    anyo_val <- if (!is.null(input$anyo) && length(input$anyo) > 0 && input$anyo[1] != "") {
+      as.numeric(input$anyo)
+    } else {
+      NULL
+    }
+    
     # Fases a incluir
     fases_incluir_val <- if (!is.null(input$fases_filter) && length(input$fases_filter) > 0) {
       as.numeric(input$fases_filter)
@@ -208,15 +229,29 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
       source("modules/sankey/sankey.R")
       
       # Construir enlaces con los filtros reales
-      enlaces_df <- construir_enlaces_sankey(
+      resultado <- construir_enlaces_sankey(
         datos = datos,
         centro_gestor = centro_gestor_val,
         nivel_agregacion = nivel_agregacion_val,
         cac_subcac_origen = cac_subcac_origen_val,
+        cac_subcac_destino = cac_subcac_destino_val,
+        mes = mes_val,
+        anyo = anyo_val,
         fases_incluir = fases_incluir_val,
         excluir_estaticos = excluir_estaticos_val,
         verbose = TRUE
       )
+      
+      if (is.null(resultado)) {
+        showNotification("No se generaron enlaces con los filtros seleccionados", 
+                         type = "warning", duration = 5)
+        sankey_data(NULL)
+        return()
+      }
+      
+      # Extraer enlaces y matriz
+      enlaces_df <- resultado$enlaces
+      matriz_movimientos <- resultado$matriz
       
       if (is.null(enlaces_df) || nrow(enlaces_df) == 0) {
         showNotification("No se generaron enlaces con los filtros seleccionados", 
@@ -275,6 +310,7 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
         links = links_df,
         enlaces_detallados = enlaces_df,
         enlaces_agregados = enlaces_agregados,
+        matriz_movimientos = matriz_movimientos,
         mostrar_parametro = mostrar_parametro_actual,
         info = list(
           n_nodos = nrow(nodes_df),
@@ -352,28 +388,115 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
   })
   
   # ========================================================================
-  # OUTPUT - INFORMACIÓN DEL SANKEY
+  # OUTPUT - MATRIZ DE MOVIMIENTOS (TRAZA)
   # ========================================================================
   
-  output$sankey_info <- renderPrint({
+  output$sankey_info <- DT::renderDataTable({
     sankey <- sankey_data()
     
     if (is.null(sankey)) {
-      cat("No hay diagrama generado.\n")
-      return()
+      return(DT::datatable(
+        data.frame(Mensaje = "Genera el diagrama de Sankey primero"),
+        options = list(dom = 't'),
+        rownames = FALSE
+      ))
     }
     
-    cat("Información del Diagrama de Sankey:\n")
-    cat("===================================\n\n")
-    cat("Fases mostradas:", paste(unique(sankey$info$fases_procesadas), collapse = ", "), "\n")
-    cat("Colorear por parámetro:", if(sankey$mostrar_parametro) "Sí" else "No", "\n\n")
-    cat("Estadísticas:\n")
-    cat("- Nodos:", sankey$info$n_nodos, "\n")
-    cat("- Enlaces detallados:", formatC(sankey$info$n_enlaces_detallados, format = "d", big.mark = " "), "\n")
-    cat("- Enlaces únicos:", formatC(sankey$info$n_enlaces, format = "d", big.mark = " "), "\n")
-    cat(sprintf("- Importe total (Fase %d): %s€\n", 
-                sankey$info$fase_maxima, 
-                formatC(sankey$info$importe_total, format = "f", big.mark = " ", digits = 2)))
+    # Obtener la matriz generada (si existe)
+    if (!is.null(sankey$matriz_movimientos)) {
+      matriz <- as.data.frame(sankey$matriz_movimientos)
+      
+      # Agrupar por todas las columnas excepto importe, sumando el importe
+      columnas_agrupacion <- setdiff(names(matriz), "importe")
+      
+      if ("importe" %in% names(matriz) && length(columnas_agrupacion) > 0) {
+        matriz <- matriz %>%
+          group_by(across(all_of(columnas_agrupacion))) %>%
+          summarise(importe = sum(importe, na.rm = TRUE), .groups = "drop") %>%
+          as.data.frame()
+      }
+      
+      # Formatear importe
+      if ("importe" %in% names(matriz)) {
+        matriz$importe_formatted <- paste0(formatC(matriz$importe, format = "f", big.mark = " ", digits = 2), "€")
+      }
+      
+      # Seleccionar columnas a mostrar (Importe al final)
+      columnas_mostrar <- c("fase_0")
+      
+      # Agregar columnas de fases disponibles
+      for (i in 1:3) {
+        col_fase <- paste0("fase_", i)
+        col_tipo <- paste0("tipo_fase_", i)
+        col_param <- paste0("param_fase_", i)
+        
+        if (col_fase %in% names(matriz)) {
+          columnas_mostrar <- c(columnas_mostrar, col_fase)
+        }
+        if (col_tipo %in% names(matriz)) {
+          columnas_mostrar <- c(columnas_mostrar, col_tipo)
+        }
+        if (col_param %in% names(matriz)) {
+          columnas_mostrar <- c(columnas_mostrar, col_param)
+        }
+      }
+      
+      # Agregar importe al final
+      columnas_mostrar <- c(columnas_mostrar, "importe_formatted")
+      
+      # Filtrar solo columnas que existen
+      columnas_mostrar <- intersect(columnas_mostrar, names(matriz))
+      matriz_display <- matriz[, columnas_mostrar, drop = FALSE]
+      
+      # Renombrar columnas para mejor visualización
+      nombres_nuevos <- columnas_mostrar
+      nombres_nuevos[nombres_nuevos == "fase_0"] <- "Origen"
+      nombres_nuevos[nombres_nuevos == "importe_formatted"] <- "Importe"
+      for (i in 1:3) {
+        nombres_nuevos[nombres_nuevos == paste0("fase_", i)] <- paste0("F", i)
+        nombres_nuevos[nombres_nuevos == paste0("tipo_fase_", i)] <- paste0("Tipo F", i)
+        nombres_nuevos[nombres_nuevos == paste0("param_fase_", i)] <- paste0("Param F", i)
+      }
+      names(matriz_display) <- nombres_nuevos
+      
+      DT::datatable(
+        matriz_display,
+        options = list(
+          scrollX = TRUE,
+          scrollY = "350px",
+          paging = TRUE,
+          pageLength = 15,
+          responsive = TRUE,
+          autoWidth = FALSE,
+          dom = 'frtip',
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')
+        ),
+        rownames = FALSE,
+        class = "stripe hover compact"
+      )
+    } else {
+      # Fallback: mostrar información básica si no hay matriz
+      info_df <- data.frame(
+        Métrica = c("Nodos", "Enlaces detallados", "Enlaces únicos", "Importe total", "Fases mostradas"),
+        Valor = c(
+          formatC(sankey$info$n_nodos, format = "d", big.mark = " "),
+          formatC(sankey$info$n_enlaces_detallados, format = "d", big.mark = " "),
+          formatC(sankey$info$n_enlaces, format = "d", big.mark = " "),
+          paste0(formatC(sankey$info$importe_total, format = "f", big.mark = " ", digits = 2), "€"),
+          paste(unique(sankey$info$fases_procesadas), collapse = ", ")
+        )
+      )
+      
+      DT::datatable(
+        info_df,
+        options = list(
+          dom = 't',
+          ordering = FALSE
+        ),
+        rownames = FALSE,
+        class = "stripe hover compact"
+      )
+    }
   })
   
   # ========================================================================
@@ -407,10 +530,13 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
     DT::datatable(
       enlaces_display,
       options = list(
-        scrollX = FALSE,
+        scrollX = TRUE,
+        scrollY = "350px",
+        paging = TRUE,
+        pageLength = 15,
         responsive = TRUE,
         autoWidth = FALSE,
-        pageLength = 10,
+        dom = 'frtip',
         language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')
       ),
       rownames = FALSE,
@@ -501,6 +627,54 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
       
       plot <- crear_plot_sankey(sankey, font_size = 14)
       htmlwidgets::saveWidget(plot, file, selfcontained = TRUE)
+    }
+  )
+  
+  # ========================================================================
+  # DOWNLOAD HANDLER - TABLA TRAZA
+  # ========================================================================
+  
+  output$download_traza <- downloadHandler(
+    filename = function() {
+      paste0("sankey_traza_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+    },
+    content = function(file) {
+      sankey <- sankey_data()
+      if (is.null(sankey) || is.null(sankey$matriz_movimientos)) {
+        showNotification("No hay datos de traza para descargar", type = "warning")
+        return()
+      }
+      
+      tryCatch({
+        matriz <- as.data.frame(sankey$matriz_movimientos)
+        
+        # Agrupar por todas las columnas excepto importe, sumando el importe
+        columnas_agrupacion <- setdiff(names(matriz), "importe")
+        
+        if ("importe" %in% names(matriz) && length(columnas_agrupacion) > 0) {
+          matriz <- matriz %>%
+            group_by(across(all_of(columnas_agrupacion))) %>%
+            summarise(importe = sum(importe, na.rm = TRUE), .groups = "drop") %>%
+            as.data.frame()
+        }
+        
+        # Renombrar columnas para mejor comprensión
+        names(matriz)[names(matriz) == "fase_0"] <- "Origen"
+        for (i in 1:3) {
+          names(matriz)[names(matriz) == paste0("fase_", i)] <- paste0("Fase_", i)
+          names(matriz)[names(matriz) == paste0("tipo_fase_", i)] <- paste0("Tipo_F", i)
+          names(matriz)[names(matriz) == paste0("param_fase_", i)] <- paste0("Param_F", i)
+        }
+        
+        write.csv(matriz, file, row.names = FALSE, fileEncoding = "UTF-8")
+        showNotification("Traza descargada exitosamente", type = "message", duration = 3)
+      }, error = function(e) {
+        showNotification(
+          paste("Error al descargar traza:", e$message),
+          type = "error",
+          duration = 5
+        )
+      })
     }
   )
   

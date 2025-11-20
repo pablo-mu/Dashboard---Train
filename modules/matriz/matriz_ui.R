@@ -34,12 +34,11 @@ create_matriz_content <- function() {
                 inputId = "expand_matriz",
                 icon = icon("search-plus", class = "opt"),
                 style = "fill",
-                color = "danger",
                 size = "xs"
               )
             ),
             div(
-              style = "position: absolute; left: 4em; bottom: 0.5em;",
+              style = "position: absolute; left: 0.5em; bottom: 0.5em;",
               dropdown(
                 tags$div(
                   style = "padding: 2px;",
@@ -70,13 +69,7 @@ create_matriz_content <- function() {
             height = 500,
             tabPanel(
               title = "Datos de la matriz (formato largo)",
-              div(
-                style = "overflow-x: auto;",
-                DT::dataTableOutput("matriz_table_larga"),
-                type = 4,
-                color = "#d33724",
-                size = 0.7
-              )
+              DT::dataTableOutput("matriz_table_larga")
             ),
             # Botón de expandir
             div(
@@ -85,7 +78,6 @@ create_matriz_content <- function() {
                 inputId = "expand_matriz_larga",
                 icon = icon("search-plus", class = "opt"),
                 style = "fill",
-                color = "danger",
                 size = "xs"
               )
             )
@@ -102,13 +94,7 @@ create_matriz_content <- function() {
             height = 500,
             tabPanel(
               title = "Datos de la matriz (formato ancho)",
-              div(
-                style = "overflow-x: auto;",
-                DT::dataTableOutput("matriz_table_ancha"),
-                type = 4,
-                color = "#d33724",
-                size = 0.7
-              )
+              DT::dataTableOutput("matriz_table_ancha")
             ),
             # Botón de expandir
             div(
@@ -117,7 +103,6 @@ create_matriz_content <- function() {
                 inputId = "expand_matriz_ancha",
                 icon = icon("search-plus", class = "opt"),
                 style = "fill",
-                color = "danger",
                 size = "xs"
               )
             )

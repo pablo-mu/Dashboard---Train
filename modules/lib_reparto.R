@@ -858,24 +858,18 @@ extraer_movimientos <- function(
     }
   }
   
-  # ---- 5. ELIMINAR FASES NO INCLUIDAS ----
+  # ---- 5. NO ELIMINAR FASES INTERMEDIAS ----
   
-  if (!is.null(fases_incluir)) {
-    fases_todas <- 1:3
-    fases_eliminar <- setdiff(fases_todas, fases_incluir)
-    
-    for (fase_num in fases_eliminar) {
-      cols_eliminar <- c(
-        paste0("fase_", fase_num),
-        paste0("tipo_fase_", fase_num),
-        paste0("param_fase_", fase_num)
-      )
-      cols_eliminar <- intersect(cols_eliminar, names(resultado))
-      if (length(cols_eliminar) > 0) {
-        resultado[, (cols_eliminar) := NULL]
-      }
-    }
-  }
+  # IMPORTANTE: NO eliminamos las fases intermedias aunque no estén en fases_incluir
+  # porque los módulos de Sankey y Matriz necesitan la cadena completa de movimientos
+  # desde fase_0 hasta la última fase procesada.
+  # 
+  # Por ejemplo, si fases_incluir = [2, 3]:
+  # - Necesitamos: fase_0, fase_1, fase_2, fase_3
+  # - NO podemos eliminar fase_1 porque es el puente entre fase_0 y fase_2
+  #
+  # Solo eliminaríamos fases que están DESPUÉS de max(fases_incluir), pero como
+  # solo procesamos hasta max_fase, ya no existen columnas posteriores.
   
   # ---- 6. RESUMEN FINAL ----
   

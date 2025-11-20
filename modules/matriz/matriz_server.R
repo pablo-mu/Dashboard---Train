@@ -72,6 +72,20 @@ create_matriz_server <- function(input, output, session, datos_raw, active_panel
       NULL
     }
     
+    # Mes
+    mes_val <- if (!is.null(input$mes) && length(input$mes) > 0 && input$mes[1] != "") {
+      as.numeric(input$mes)
+    } else {
+      NULL
+    }
+    
+    # Año
+    anyo_val <- if (!is.null(input$anyo) && length(input$anyo) > 0 && input$anyo[1] != "") {
+      as.numeric(input$anyo)
+    } else {
+      NULL
+    }
+    
     # Fases a incluir
     fases_incluir_val <- if (!is.null(input$fases_filter) && length(input$fases_filter) > 0) {
       as.numeric(input$fases_filter)
@@ -109,6 +123,8 @@ create_matriz_server <- function(input, output, session, datos_raw, active_panel
         nivel_agregacion = nivel_agregacion_val,
         cac_subcac_origen = cac_subcac_origen_val,
         cac_subcac_destino = cac_subcac_destino_val,
+        mes = mes_val,
+        anyo = anyo_val,
         fases_incluir = fases_incluir_val,
         excluir_estaticos = excluir_estaticos_val,
         verbose = TRUE
@@ -268,9 +284,12 @@ create_matriz_server <- function(input, output, session, datos_raw, active_panel
       tabla_larga,
       options = list(
         scrollX = TRUE,
+        scrollY = "350px",
+        paging = TRUE,
+        pageLength = 15,
         responsive = TRUE,
         autoWidth = FALSE,
-        pageLength = 10,
+        dom = 'frtip',
         language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')
       ),
       rownames = FALSE,
@@ -304,9 +323,11 @@ create_matriz_server <- function(input, output, session, datos_raw, active_panel
       options = list(
         scrollX = TRUE,
         scrollY = "350px",
+        paging = TRUE,
+        pageLength = 15,
         responsive = FALSE,
         autoWidth = FALSE,
-        pageLength = 25,
+        dom = 'frtip',
         language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')
       ),
       rownames = FALSE,

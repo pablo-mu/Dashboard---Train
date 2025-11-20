@@ -58,7 +58,6 @@ create_sankey_content <- function() {
                 inputId = "expand_sankey",
                 icon = icon("search-plus", class = "opt"),
                 style = "fill",
-                color = "danger",
                 size = "xs"
               )
             ),
@@ -86,25 +85,48 @@ create_sankey_content <- function() {
       )
     ),
     
-    # Información y tablas en dos columnas
+    # Traza (Matriz de movimientos) debajo del diagrama
     fluidRow(
       column(
-        width = 6,
+        width = 12,
         div(
           style = "position: relative",
           tabBox(
-            id = "sankey_info_box",
+            id = "sankey_traza_box",
             width = NULL,
-            height = 500,
+            height = 600,
             tabPanel(
-              title = "Información del Diagrama",
-              verbatimTextOutput("sankey_info")
+              title = "Traza",
+              DT::dataTableOutput("sankey_info")
+            )
+          ),
+          
+          # Botón de descargar traza
+          div(
+            style = "position: absolute; left: 0.5em; bottom: 0.5em;",
+            dropdown(
+              tags$div(
+                style = "padding: 2px;",
+                downloadButton(
+                  outputId = "download_traza",
+                  label = "Descargar",
+                  style = "background-color: #c8102e; color: white; border: none; font-size: 11px; display: flex; align-items: center; gap: 5px; padding: 6px 12px;"
+                )
+              ),
+              size = "xs",
+              icon = icon("download", class = "opt"),
+              style = "fill",
+              up = TRUE
             )
           )
         )
-      ),
+      )
+    ),
+    
+    # Tabla de enlaces detallados
+    fluidRow(
       column(
-        width = 6,
+        width = 12,
         div(
           style = "position: relative",
           tabBox(
@@ -113,14 +135,11 @@ create_sankey_content <- function() {
             height = 500,
             tabPanel(
               title = "Enlaces Detallados",
-              div(
-                style = "overflow-x:auto; height: 400px;",
-                withSpinner(
-                  DT::dataTableOutput("sankey_enlaces_table"),
-                  type = 4,
-                  color = "#d33724",
-                  size = 0.5
-                )
+              withSpinner(
+                DT::dataTableOutput("sankey_enlaces_table"),
+                type = 4,
+                color = "#d33724",
+                size = 0.5
               )
             ),
             
@@ -131,7 +150,6 @@ create_sankey_content <- function() {
                 inputId = "expand_enlaces_table",
                 icon = icon("search-plus", class = "opt"),
                 style = "fill",
-                color = "danger",
                 size = "xs"
               )
             )

@@ -19,6 +19,8 @@ create_dynamic_server <- function(input, output,
   source("modules/sankey/sankey_server.R")
   source("modules/matriz/matriz_server.R")
   source("modules/matriz/matriz_ui.R")
+  source("modules/diagnostico/diagnostico_server.R")
+  source("modules/diagnostico/diagnostico_ui.R")
 
 
   
@@ -158,6 +160,9 @@ create_dynamic_server <- function(input, output,
   # Inicializar servidor de Matriz de Costes
   matriz_data <- create_matriz_server(input, output, session, datos_raw, active_panel)
   
+  # Inicializar servidor de Diagnóstico
+  diagnostico_options <- create_diagnostico_server(input, output, session, datos_raw, active_panel)
+  
 
   
   # Renderizar contenido de cada panel
@@ -170,7 +175,7 @@ create_dynamic_server <- function(input, output,
   })
   
   output$diagnostics_content <- shiny::renderUI({
-    create_diagnostics_content()
+    create_diagnostico_content()
   })
   
   # Controlar visibilidad de paneles según active_panel
@@ -209,7 +214,7 @@ create_dynamic_server <- function(input, output,
     modal_content <- switch(panel,
       "sankey" = create_sankey_filters(),
       "matriz_costes" = create_matriz_filters(),
-      "diagnostics" = create_diagnostics_filters(),
+      "diagnostics" = create_diagnostico_filters(),
       list(
         h4("Filtros no disponibles"),
         p("No hay filtros definidos para este panel.")
@@ -262,62 +267,4 @@ create_dynamic_server <- function(input, output,
     filters = filters,
     datos_loaded = datos_loaded
   ))
-}
-
-# ============================================================================
-# FUNCIONES AUXILIARES PARA CONTENIDOS DE PANELES
-# ============================================================================
-# Note: create_sankey_content is now in modules/sankey/sankey_ui.R
-
-#' Crear contenido del panel Matriz de Costes  
-create_matriz_costes_content <- function() {
-  tagList(
-    fluidRow(
-      box(title = "Matriz de Costes", status = "primary", solidHeader = TRUE, width = 12,
-          h4("Matriz detallada de costes"),
-          p("Configure los filtros y presione 'Generar' para ver la matriz de costes.")
-      )
-    )
-  )
-}
-
-#' Crear contenido del panel Diagnostics
-create_diagnostics_content <- function() {
-  tagList(
-    fluidRow(
-      box(title = "Diagnósticos", status = "primary", solidHeader = TRUE, width = 12,
-          h4("Análisis y diagnósticos"),
-          p("Configure los filtros y presione 'Generar' para ver los diagnósticos.")
-      )
-    )
-  )
-}
-
-# ============================================================================
-# FUNCIONES AUXILIARES PARA FILTROS ESPECÍFICOS DE PANELES
-# ============================================================================
-# Note: create_sankey_filters is now in modules/sankey/sankey_filters.R
-
-#' Crear filtros específicos del panel Matriz de Costes
-create_matriz_costes_filters <- function() {
-  tagList(
-    h4("Configuración Matriz"),
-    p("Filtros específicos para la matriz de costes."),
-    checkboxInput("matriz_heatmap", "Vista Heatmap", value = FALSE),
-    selectInput("matriz_format", "Formato números:", 
-               choices = c("Miles" = "thousands", "Millones" = "millions"),
-               selected = "thousands")
-  )
-}
-
-#' Crear filtros específicos del panel Diagnostics
-create_diagnostics_filters <- function() {
-  tagList(
-    h4("Configuración Diagnósticos"),
-    p("Filtros específicos para análisis y diagnósticos."),
-    checkboxInput("diag_detailed", "Análisis detallado", value = TRUE),
-    selectInput("diag_type", "Tipo de análisis:", 
-               choices = c("Básico" = "basic", "Avanzado" = "advanced"),
-               selected = "basic")
-  )
 }

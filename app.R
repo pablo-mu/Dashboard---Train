@@ -25,7 +25,11 @@ ui <- dashboardPage(
   title = DASHBOARD_CONFIG$title,
 
   dashboardHeader(
-    title = span(img(src = "sankey.svg", height = 35), "Reparto Costes"),
+    title = introBox(
+      span(img(src = "sankey.svg", height = 35), "Reparto Costes"),
+      data.step = 1,
+      data.intro = "<strong>¡Bienvenido al Dashboard de Reparto de Costes!</strong><br/>Esta aplicación te permite visualizar y analizar el flujo de costes entre centros de actividad (CACs). Usa este tour guiado para conocer todas las funcionalidades disponibles.<br/><br/>• Navega entre diferentes vistas<br/>• Aplica filtros personalizados<br/>• Genera reportes detallados"
+    ),
     titleWidth = 300,
     dropdownMenu(
       type = "notifications",
@@ -93,6 +97,22 @@ ui <- dashboardPage(
           font-weight: 600;
           margin: 0;
         }
+        
+        /* Estilos personalizados para intro.js */
+        .introjs-skipbutton {
+          color: #c8102e !important;
+          font-weight: 600 !important;
+          border: 2px solid #c8102e !important;
+          background-color: white !important;
+          border-radius: 4px !important;
+          padding: 6px 14px !important;
+          transition: all 0.3s ease !important;
+          font-size: 13px !important;
+        }
+        .introjs-skipbutton:hover {
+          background-color: #c8102e !important;
+          color: white !important;
+        }
       ")),
     ),
     useShinyjs(),
@@ -101,15 +121,31 @@ ui <- dashboardPage(
     create_bar(PANEL_DEFINITIONS),
     
     # Paneles dinámicos usando fluid_design
-    fluid_design("sankey_panel", "sankey_content"),
-    fluid_design("matriz_costes_panel", "matriz_costes_content"),
-    fluid_design("diagnostics_panel", "diagnostics_content")
+    introBox(
+      data.step = 6,
+      data.intro = "<strong>Área Principal de Visualización</strong><br/>Aquí se mostrarán los gráficos y tablas generadas según tus filtros:<br/>• <strong>Diagramas interactivos</strong>: Haz zoom y explora los datos<br/>• <strong>Tablas detalladas</strong>: Exporta y analiza los datos en detalle<br/>• <strong>Vistas expandidas</strong>: Usa los botones de expansión para ver en pantalla completa<br/><br/><strong>¡Ya estás listo para comenzar!</strong> Carga tus datos y empieza a explorar.",
+      fluid_design("sankey_panel", "sankey_content"),
+      fluid_design("matriz_costes_panel", "matriz_costes_content"),
+      fluid_design("diagnostics_panel", "diagnostics_content")
+    )
   )
 )
 
 server <- function(input, output, session){
-    observe({
-    introjs(session)
+  observe({
+    introjs(session, options = list(
+      "nextLabel" = "Siguiente",
+      "prevLabel" = "Anterior",
+      "skipLabel" = "Saltar Tour",
+      "doneLabel" = "Finalizar",
+      "showProgress" = TRUE,
+      "showBullets" = FALSE,
+      "showStepNumbers" = TRUE,
+      "exitOnOverlayClick" = FALSE,
+      "exitOnEsc" = TRUE,
+      "hidePrev" = FALSE,
+      "hideNext" = FALSE
+    ))
   })
 
   # Create dynamic server components  

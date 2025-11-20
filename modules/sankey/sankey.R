@@ -9,6 +9,9 @@ source("modules/lib_reparto.R")
 #' @param centro_gestor Centro gestor a filtrar. NULL = todos
 #' @param nivel_agregacion "cac" (3 dígitos), "cac2" (2 dígitos), "cac1" (1 dígito) o "subcac"
 #' @param cac_subcac_origen Vector de CACs/SUBCACs origen a incluir. NULL = todos
+#' @param cac_subcac_destino Vector de CACs/SUBCACs destino a incluir. NULL = todos
+#' @param mes Vector de meses a filtrar (NULL = todos)
+#' @param anyo Vector de años a filtrar (NULL = todos)
 #' @param fases_incluir Vector con fases a incluir (1, 2, 3). NULL = todas
 #' @param excluir_estaticos Si TRUE, excluye registros que no se movieron de fase_0 a la última fase
 #' @param verbose Mostrar mensajes de progreso (TRUE/FALSE)
@@ -21,6 +24,9 @@ construir_enlaces_sankey <- function(
   centro_gestor = NULL,
   nivel_agregacion = "cac",
   cac_subcac_origen = NULL,
+  cac_subcac_destino = NULL,
+  mes = NULL,
+  anyo = NULL,
   fases_incluir = NULL,
   excluir_estaticos = TRUE,
   verbose = TRUE,
@@ -32,12 +38,14 @@ construir_enlaces_sankey <- function(
     return(NULL)
   }
 
-    # 1) Filtrar datos segun parametros
+    # 1) Filtrar datos segun parametros (NO filtrar por origen aquí)
   datos_dt <- filtrar_datos_reparto(
     datos,
     centro_gestor = centro_gestor,
-    cacs_origen   = if (nivel_agregacion == "cac")    cac_subcac_origen else NULL,
-    subcacs_origen= if (nivel_agregacion == "subcac") cac_subcac_origen else NULL,
+    cacs_origen   = NULL,  # No filtrar por origen aquí
+    subcacs_origen= NULL,  # No filtrar por origen aquí
+    mes = mes,
+    anyo = anyo,
     nivel_agregacion = nivel_agregacion
   )
 
@@ -65,6 +73,56 @@ construir_enlaces_sankey <- function(
     return(NULL)
   }
   if (!is.data.table(matriz)) matriz <- as.data.table(matriz)
+
+  # Filtrar por origen (fase_0) si se especifica
+  if (!is.null(cac_subcac_origen) && length(cac_subcac_origen) > 0) {
+    n_antes <- nrow(matriz)
+    matriz <- matriz[fase_0 %in% cac_subcac_origen]
+    n_despues <- nrow(matriz)
+    
+    if (verbose && n_antes > n_despues) {
+      message(sprintf("  Filtrados %s registros por origen: %s",
+                      formatC(n_antes - n_despues, format = "d", big.mark = " "),
+                      paste(cac_subcac_origen, collapse = ", ")))
+    }
+    
+    if (nrow(matriz) == 0) {
+      warning("No hay registros con los orígenes seleccionados")
+      return(NULL)
+    }
+  }
+
+  # Filtrar por destino si se especifica
+  # Buscar en todas las fases de destino posibles
+  if (!is.null(cac_subcac_destino) && length(cac_subcac_destino) > 0) {
+    n_antes <- nrow(matriz)
+    
+    # Determinar qué fases están presentes en los datos
+    fases_a_procesar <- if (is.null(fases_incluir)) c(1, 2, 3) else sort(unique(fases_incluir))
+    
+    # Crear condición OR para todas las fases destino
+    condicion_destino <- rep(FALSE, nrow(matriz))
+    for (fase_num in fases_a_procesar) {
+      col_destino <- paste0("fase_", fase_num)
+      if (col_destino %in% names(matriz)) {
+        condicion_destino <- condicion_destino | (matriz[[col_destino]] %in% cac_subcac_destino)
+      }
+    }
+    
+    matriz <- matriz[condicion_destino]
+    n_despues <- nrow(matriz)
+    
+    if (verbose && n_antes > n_despues) {
+      message(sprintf("  Filtrados %s registros por destino: %s",
+                      formatC(n_antes - n_despues, format = "d", big.mark = " "),
+                      paste(cac_subcac_destino, collapse = ", ")))
+    }
+    
+    if (nrow(matriz) == 0) {
+      warning("No hay registros con los destinos seleccionados")
+      return(NULL)
+    }
+  }
 
   # Filtramos los movimientos estáticos si se solicita
   if (excluir_estaticos) {
@@ -144,16 +202,22 @@ construir_enlaces_sankey <- function(
     nombre_param  <- paste0("param_fase_", fase)
     
     # Tipo de la fase anterior (para el sufijo del source)
-    nombre_tipo_prev <- if (fase > 1) paste0("tipo_fase_", fase - 1) else NULL
+    # Solo usar si la fase anterior está en las fases procesadas
+    fase_anterior <- fase - 1
+    nombre_tipo_prev <- if (fase_anterior > 0 && fase_anterior %in% fases_a_procesar) {
+      paste0("tipo_fase_", fase_anterior)
+    } else {
+      NULL
+    }
     tiene_tipo_prev <- !is.null(nombre_tipo_prev) && nombre_tipo_prev %in% names(fase_dt)
     
     # CONSTRUIR ETIQUETAS SOURCE (con continuidad del flujo)
     # El source debe coincidir exactamente con el target de la fase anterior
-    if (fase == 1) {
-      # Para fase 1: siempre es F0 sin sufijo
-      fase_dt[, source_label := paste0("F0: ", get(col_origen))]
+    if (fase == min(fases_a_procesar)) {
+      # Para la primera fase procesada: usar el origen de fase anterior
+      fase_dt[, source_label := paste0("F", fase - 1, ": ", get(col_origen))]
     } else {
-      # Para fases 2 y 3: el source debe tener el sufijo de cómo llegó en la fase anterior
+      # Para fases posteriores: el source debe tener el sufijo de cómo llegó en la fase anterior
       fase_dt[, source_label := paste0("F", fase - 1, ": ", get(col_origen))]
       
       # Si hay tipo previo y está en tipos_con_sufijo, añadir sufijo al source
@@ -217,7 +281,11 @@ construir_enlaces_sankey <- function(
 
   }
 
-  return(enlaces_df)
+  # Retornar tanto los enlaces como la matriz original
+  return(list(
+    enlaces = enlaces_df,
+    matriz = matriz
+  ))
 }
 
 #' Agregar enlaces duplicados

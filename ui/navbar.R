@@ -22,7 +22,7 @@ create_bar <- function(panel_definitions) {
           style = panel_definitions$diagnostics$button_style
         ),
         data.step = 2,
-        data.intro = "Use these buttons to quickly access main dashboard panels."
+        data.intro = "<strong>Barra de Navegación</strong><br/>Usa estos botones para cambiar rápidamente entre los paneles principales del dashboard:<br/>• <strong>Sankey</strong>: Diagrama de flujo de costes<br/>• <strong>Matriz Costes</strong>: Vista de matriz de reparto<br/>• <strong>Diagnósticos</strong>: Análisis y estadísticas detalladas"
       )
     )
   )
