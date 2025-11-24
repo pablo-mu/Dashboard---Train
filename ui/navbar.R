@@ -21,8 +21,14 @@ create_bar <- function(panel_definitions) {
           icon = icon(panel_definitions$diagnostics$icon),
           style = panel_definitions$diagnostics$button_style
         ),
+        bsButton(
+          "Traza",
+          label = panel_definitions$traza$name,
+          icon = icon(panel_definitions$traza$icon),
+          style = panel_definitions$traza$button_style
+        ),
         data.step = 2,
-        data.intro = "<strong>Barra de Navegación</strong><br/>Usa estos botones para cambiar rápidamente entre los paneles principales del dashboard:<br/>• <strong>Sankey</strong>: Diagrama de flujo de costes<br/>• <strong>Matriz Costes</strong>: Vista de matriz de reparto<br/>• <strong>Diagnósticos</strong>: Análisis y estadísticas detalladas"
+        data.intro = "<strong>Barra de Navegación</strong><br/>Usa estos botones para cambiar rápidamente entre los paneles principales del dashboard:<br/>• <strong>Sankey</strong>: Diagrama de flujo de costes<br/>• <strong>Matriz Costes</strong>: Vista de matriz de reparto<br/>• <strong>Diagnósticos</strong>: Análisis y estadísticas detalladas<br/>• <strong>Traza</strong>: Matriz de movimientos con agregación personalizada"
       )
     )
   )

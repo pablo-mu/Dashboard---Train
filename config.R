@@ -67,6 +67,14 @@ PANEL_DEFINITIONS <- list(
         icon = "flask",
         button_style = "success",
         button_label = "Generar Diagnósticos"
+    ),
+    
+    traza = list(
+        name = "Traza",
+        label = "traza",
+        icon = "route",
+        button_style = "success",
+        button_label = "Generar Traza"
     )
 )
 

@@ -85,44 +85,6 @@ create_sankey_content <- function() {
       )
     ),
     
-    # Traza (Matriz de movimientos) debajo del diagrama
-    fluidRow(
-      column(
-        width = 12,
-        div(
-          style = "position: relative",
-          tabBox(
-            id = "sankey_traza_box",
-            width = NULL,
-            height = 600,
-            tabPanel(
-              title = "Traza",
-              DT::dataTableOutput("sankey_info")
-            )
-          ),
-          
-          # Botón de descargar traza
-          div(
-            style = "position: absolute; left: 0.5em; bottom: 0.5em;",
-            dropdown(
-              tags$div(
-                style = "padding: 2px;",
-                downloadButton(
-                  outputId = "download_traza",
-                  label = "Descargar",
-                  style = "background-color: #c8102e; color: white; border: none; font-size: 11px; display: flex; align-items: center; gap: 5px; padding: 6px 12px;"
-                )
-              ),
-              size = "xs",
-              icon = icon("download", class = "opt"),
-              style = "fill",
-              up = TRUE
-            )
-          )
-        )
-      )
-    ),
-    
     # Tabla de enlaces detallados
     fluidRow(
       column(

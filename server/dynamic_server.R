@@ -21,6 +21,8 @@ create_dynamic_server <- function(input, output,
   source("modules/matriz/matriz_ui.R")
   source("modules/diagnostico/diagnostico_server.R")
   source("modules/diagnostico/diagnostico_ui.R")
+  source("modules/traza/traza_ui.R")
+  source("modules/traza/traza_server.R")
 
 
   
@@ -46,6 +48,10 @@ create_dynamic_server <- function(input, output,
   
   shiny::observeEvent(input$Diagnostics, {
     active_panel("diagnostics")
+  })
+  
+  shiny::observeEvent(input$Traza, {
+    active_panel("traza")
   })
   
   # Estado de carga de datos
@@ -92,23 +98,119 @@ create_dynamic_server <- function(input, output,
   # Variable reactiva para almacenar los datos
   datos_raw <- shiny::reactiveVal(NULL)
 
-  # Observer para manejar la carga de datos cuando se presiona el botón
+  # Variable reactiva para controlar el estado del modal de carga
+  loading_modal_state <- shiny::reactiveVal("select")  # "select" o "loading"
+  
+  # Observer para mostrar modal de selección de fuente de datos
   shiny::observeEvent(input$load_data, {
     cat("Botón de cargar datos presionado\n")  # Debug
+    loading_modal_state("select")
+    
+    showModal(modalDialog(
+      title = NULL,
+      div(
+        id = "load_data_modal_content",
+        style = "padding: 20px;",
+        h3("Seleccionar Fuente de Datos",
+           style = "margin-top: 0; margin-bottom: 20px; color: #2c3e50; font-weight: 600;"),
+        
+        div(
+          style = "margin-bottom: 30px;",
+          p("Elige la fuente de datos que deseas cargar:",
+            style = "color: #555; margin-bottom: 20px;")
+        ),
+        
+        # Opciones de fuente
+        div(
+          style = "display: flex; gap: 20px; justify-content: center;",
+          
+          # Opción CASA
+          div(
+            style = "flex: 1; max-width: 250px;",
+            actionButton(
+              "select_casa",
+              div(
+                icon("home", style = "font-size: 48px; margin-bottom: 15px;"),
+                h4("CASA", style = "margin: 10px 0;"),
+                p("Formato estándar", style = "font-size: 12px; color: #666; margin: 0;")
+              ),
+              style = "width: 100%; height: 180px; background-color: #f8f9fa; border: 2px solid #dee2e6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s;",
+              onclick = "this.style.backgroundColor='#e9ecef'; this.style.borderColor='#c8102e';"
+            )
+          ),
+          
+          # Opción SIE
+          div(
+            style = "flex: 1; max-width: 250px;",
+            actionButton(
+              "select_sie",
+              div(
+                icon("database", style = "font-size: 48px; margin-bottom: 15px;"),
+                h4("SIE", style = "margin: 10px 0;"),
+                p("Formato SIE", style = "font-size: 12px; color: #666; margin: 0;")
+              ),
+              style = "width: 100%; height: 180px; background-color: #f8f9fa; border: 2px solid #dee2e6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s;",
+              onclick = "this.style.backgroundColor='#e9ecef'; this.style.borderColor='#c8102e';"
+            )
+          )
+        )
+      ),
+      easyClose = TRUE,
+      size = "m",
+      footer = div(
+        style = "display: flex; justify-content: flex-end; gap: 10px; padding: 15px 20px; background-color: #f8f9fa; border-top: 1px solid #dee2e6;",
+        actionButton("modal_cancel_load", "Cancelar",
+                    icon = icon("times"),
+                    class = "btn btn-primary",
+                    style = "padding: 10px 25px; font-size: 14px; color: white;")
+      )
+    ))
+  })
+  
+  # Función para actualizar el contenido del modal a estado de carga
+  actualizar_modal_cargando <- function(fuente) {
+    loading_modal_state("loading")
+    
+    showModal(modalDialog(
+      title = NULL,
+      div(
+        style = "padding: 40px 20px; text-align: center;",
+        icon("spinner", class = "fa-spin", style = "font-size: 64px; color: #c8102e; margin-bottom: 20px;"),
+        h3(paste("Cargando datos", fuente), 
+           style = "margin: 20px 0 10px 0; color: #2c3e50; font-weight: 600;"),
+        p("Por favor espera mientras se procesan los archivos...",
+          style = "color: #666; margin: 0;")
+      ),
+      easyClose = FALSE,
+      size = "m",
+      footer = NULL
+    ))
+  }
+  
+  # Cerrar modal de carga al presionar cancelar
+  observeEvent(input$modal_cancel_load, {
+    removeModal()
+  })
+  
+  # Observer para cargar datos CASA
+  shiny::observeEvent(input$select_casa, {
+    cat("Seleccionada fuente CASA\n")  # Debug
+    
+    # Cambiar modal a estado de carga
+    actualizar_modal_cargando("CASA")
     
     # Actualizar estado de carga
     loading_data(TRUE)
     
-    # Simular un pequeño delay para mostrar el spinner
-    shiny::invalidateLater(500, session)
-    
     tryCatch({
-      cat("Iniciando carga de datos...\n")  # Debug en consola
+      cat("Iniciando carga de datos CASA...\n")  # Debug en consola
       
-      datos <- preparar_datos_reparto()
+      datos <- preparar_datos_reparto(
+        rutas = c(".data/CASA", "./data/CASA", "data/CASA", "./.data/CASA")
+      )
       
       if (!is.null(datos)) {
-        cat("Datos cargados exitosamente:", nrow(datos), "filas\n")  # Debug
+        cat("Datos CASA cargados exitosamente:", nrow(datos), "filas\n")  # Debug
         
         datos_dt <- datos %>% as.data.table()
         
@@ -117,25 +219,99 @@ create_dynamic_server <- function(input, output,
         datos_loaded(TRUE)
         loading_data(FALSE)
         
+        # Cerrar modal después de carga exitosa
+        removeModal()
+        
         showNotification(
-          paste("✓ Datos cargados:", formatC(nrow(datos_dt), format = "d", big.mark = " "), "registros únicos"),
+          paste("✓ Datos CASA cargados:", formatC(nrow(datos_dt), format = "d", big.mark = " "), "registros únicos"),
           type = "message",
           duration = 5
         )
       } else {
         cat("Error: preparar_datos_reparto() devolvió NULL\n")  # Debug
         loading_data(FALSE)
+        
+        # Cerrar modal incluso si hay error
+        removeModal()
+        
         showNotification(
-          paste("No se encontraron archivos CSV. Directorio:", getwd()),
+          "No se encontraron archivos CSV en .data/CASA",
           type = "error",
           duration = 10
         )
       }
     }, error = function(e) {
-      cat("Error en carga de datos:", e$message, "\n")  # Debug
+      cat("Error en carga de datos CASA:", e$message, "\n")  # Debug
       loading_data(FALSE)
+      
+      # Cerrar modal en caso de error
+      removeModal()
+      
       showNotification(
-        paste("Error al cargar datos:", e$message),
+        paste("Error al cargar datos CASA:", e$message),
+        type = "error",
+        duration = 10
+      )
+    })
+  })
+  
+  # Observer para cargar datos SIE
+  shiny::observeEvent(input$select_sie, {
+    cat("Seleccionada fuente SIE\n")  # Debug
+    
+    # Cambiar modal a estado de carga
+    actualizar_modal_cargando("SIE")
+    
+    # Actualizar estado de carga
+    loading_data(TRUE)
+    
+    tryCatch({
+      cat("Iniciando carga de datos SIE...\n")  # Debug en consola
+      
+      datos <- preparar_datos_reparto(
+        rutas = c(".data/SIE", "./data/SIE", "data/SIE", "./.data/SIE")
+      )
+      
+      if (!is.null(datos)) {
+        cat("Datos SIE cargados exitosamente:", nrow(datos), "filas\n")  # Debug
+        
+        datos_dt <- datos %>% as.data.table()
+        
+        # Actualizar los datos y estado
+        datos_raw(datos)
+        datos_loaded(TRUE)
+        loading_data(FALSE)
+        
+        # Cerrar modal después de carga exitosa
+        removeModal()
+        
+        showNotification(
+          paste("✓ Datos SIE cargados:", formatC(nrow(datos_dt), format = "d", big.mark = " "), "registros únicos"),
+          type = "message",
+          duration = 5
+        )
+      } else {
+        cat("Error: preparar_datos_reparto() devolvió NULL\n")  # Debug
+        loading_data(FALSE)
+        
+        # Cerrar modal incluso si hay error
+        removeModal()
+        
+        showNotification(
+          "No se encontraron archivos CSV en .data/SIE",
+          type = "error",
+          duration = 10
+        )
+      }
+    }, error = function(e) {
+      cat("Error en carga de datos SIE:", e$message, "\n")  # Debug
+      loading_data(FALSE)
+      
+      # Cerrar modal en caso de error
+      removeModal()
+      
+      showNotification(
+        paste("Error al cargar datos SIE:", e$message),
         type = "error",
         duration = 10
       )
@@ -163,7 +339,8 @@ create_dynamic_server <- function(input, output,
   # Inicializar servidor de Diagnóstico
   diagnostico_options <- create_diagnostico_server(input, output, session, datos_raw, active_panel)
   
-
+  # Inicializar servidor de Traza
+  traza_data <- create_traza_server(input, output, session, datos_raw, active_panel)
   
   # Renderizar contenido de cada panel
   output$sankey_content <- shiny::renderUI({
@@ -178,6 +355,10 @@ create_dynamic_server <- function(input, output,
     create_diagnostico_content()
   })
   
+  output$traza_content <- shiny::renderUI({
+    create_traza_content()
+  })
+  
   # Controlar visibilidad de paneles según active_panel
   observe({
     panel <- active_panel()
@@ -186,6 +367,7 @@ create_dynamic_server <- function(input, output,
     shinyjs::hide("sankey_panel")
     shinyjs::hide("matriz_costes_panel")
     shinyjs::hide("diagnostics_panel")
+    shinyjs::hide("traza_panel")
     
     # Mostrar solo el panel activo
     if (panel == "sankey") {
@@ -194,6 +376,8 @@ create_dynamic_server <- function(input, output,
       shinyjs::show("matriz_costes_panel")
     } else if (panel == "diagnostics") {
       shinyjs::show("diagnostics_panel")
+    } else if (panel == "traza") {
+      shinyjs::show("traza_panel")
     }
   })
 
@@ -215,6 +399,7 @@ create_dynamic_server <- function(input, output,
       "sankey" = create_sankey_filters(),
       "matriz_costes" = create_matriz_filters(),
       "diagnostics" = create_diagnostico_filters(),
+      "traza" = create_traza_filters(),
       list(
         h4("Filtros no disponibles"),
         p("No hay filtros definidos para este panel.")
@@ -230,6 +415,7 @@ create_dynamic_server <- function(input, output,
                         "sankey" = "Diagrama Sankey",
                         "matriz_costes" = "Matriz de Costes",
                         "diagnostics" = "Diagnósticos",
+                        "traza" = "Matriz de Movimientos",
                         toupper(panel))),
            style = "margin-top: 0; margin-bottom: 20px; color: #2c3e50; font-weight: 600;"),
         modal_content

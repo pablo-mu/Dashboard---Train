@@ -126,7 +126,8 @@ ui <- dashboardPage(
       data.intro = "<strong>Área Principal de Visualización</strong><br/>Aquí se mostrarán los gráficos y tablas generadas según tus filtros:<br/>• <strong>Diagramas interactivos</strong>: Haz zoom y explora los datos<br/>• <strong>Tablas detalladas</strong>: Exporta y analiza los datos en detalle<br/>• <strong>Vistas expandidas</strong>: Usa los botones de expansión para ver en pantalla completa<br/><br/><strong>¡Ya estás listo para comenzar!</strong> Carga tus datos y empieza a explorar.",
       fluid_design("sankey_panel", "sankey_content"),
       fluid_design("matriz_costes_panel", "matriz_costes_content"),
-      fluid_design("diagnostics_panel", "diagnostics_content")
+      fluid_design("diagnostics_panel", "diagnostics_content"),
+      fluid_design("traza_panel", "traza_content")
     )
   )
 )

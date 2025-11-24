@@ -1,6 +1,7 @@
 library(dplyr)
 library(dtplyr)
 library(data.table)
+library(readr)
 
 # =============================================================================
 # 1. CONFIGURACIÓN DE COLUMNAS SIMPLIFICADA
@@ -106,6 +107,9 @@ corregir_valores_cac <- function(datos) {
 
 #' Agregar CACs según nivel
 agregar_cac <- function(cac_vector, nivel) {
+  # Proteger contra NAs
+  cac_vector <- ifelse(is.na(cac_vector), "", cac_vector)
+  
   if (nivel == "cac1") return(substr(cac_vector, 1, 1))
   if (nivel == "cac2") return(substr(cac_vector, 1, 2))
   return(cac_vector) # "cac" o "subcac" mantienen valor original
@@ -123,7 +127,212 @@ crear_fase_origen <- function(datos, nivel_agregacion) {
 }
 
 # =============================================================================
-# 3. CARGA DE DATOS SIMPLIFICADA
+# 3. FUNCIONES PARA ARCHIVOS SIE
+# =============================================================================
+
+#' Detectar si un archivo es formato SIE
+#' @param nombres_columnas Vector con nombres de columnas del archivo
+#' @return Lógico indicando si es formato SIE
+es_formato_sie <- function(nombres_columnas) {
+  columnas_sie <- c("CENTRO", "ANYO", "MESCF", "CACCF", "CACA0", "CACA1", "CACA2", "CACA3", "IMPORTE")
+  sum(columnas_sie %in% nombres_columnas) >= 7  # Al menos 7 de 9 columnas clave
+}
+
+#' Transformar datos SIE al formato estándar
+#' 
+#' Convierte la estructura SIE a la estructura compatible con el código actual.
+#' Cada movimiento se trata como "Se Distribuye" (SD) ya que no hay información
+#' de tipo de reparto en los archivos SIE.
+#' 
+#' @param datos_sie data.frame con estructura SIE
+#' @return data.frame con estructura estándar
+transformar_sie_a_estandar <- function(datos_sie) {
+  
+  message("  Transformando formato SIE a formato estándar...")
+  message(sprintf("    [DEBUG] Dimensiones datos_sie: %d filas, %d columnas", nrow(datos_sie), ncol(datos_sie)))
+  message(sprintf("    [DEBUG] Columnas disponibles: %s", paste(names(datos_sie)[1:min(10, ncol(datos_sie))], collapse=", ")))
+  
+  # Convertir IMPORTE de forma segura
+  message("    [DEBUG] Convirtiendo IMPORTE...")
+  importe_raw <- as.character(datos_sie$IMPORTE)
+  importe_limpio <- gsub("\\s+", "", importe_raw)  # Quitar espacios
+  importe_limpio <- gsub("\\.", "", importe_limpio)  # Quitar separadores de miles
+  importe_limpio <- gsub(",", ".", importe_limpio)  # Cambiar coma decimal por punto
+  importe_numerico <- as.numeric(importe_limpio)
+  importe_numerico[is.na(importe_numerico)] <- 0
+  message(sprintf("    [DEBUG] IMPORTE convertido: %d valores, suma: %.2f", length(importe_numerico), sum(importe_numerico)))
+  
+  # Mapear columnas básicas
+  message("    [DEBUG] Creando data.frame estándar...")
+  datos_estandar <- data.frame(
+    ZCENT_GEST = as.character(datos_sie$CENTRO),
+    ZANYO = as.integer(datos_sie$ANYO),
+    ZMES = as.integer(datos_sie$MESCF),
+    ZIMPORT = importe_numerico,
+    ZCT_SUBCAC_E = as.character(datos_sie$CACCF),
+    ZACT_E = as.character(datos_sie$CACA0),
+    stringsAsFactors = FALSE
+  )
+  message("    [DEBUG] Data.frame básico creado correctamente")
+  
+  # Extraer CACs (siempre existen en archivos SIE válidos)
+  message("    [DEBUG] Extrayendo CACs...")
+  caca0 <- as.character(datos_sie$CACA0)
+  caca1 <- as.character(datos_sie$CACA1)
+  caca2 <- as.character(datos_sie$CACA2)
+  caca3 <- as.character(datos_sie$CACA3)
+  message("    [DEBUG] CACs extraídos correctamente")
+  message("    [DEBUG] CACs extraídos correctamente")
+  
+  # Fase 1: CACA0 → CACA1
+  message("    [DEBUG] Configurando Fase 1...")
+  datos_estandar$ZACT_RE12 <- caca0      # Mantener origen = no movimiento
+  datos_estandar$ZACT_RE34 <- caca0      # Mantener origen = no movimiento
+  datos_estandar$ZACT_F1SD <- caca1      # Mover a CACA1 via SD
+  datos_estandar$ZPARAM_RE34 <- "NO PARAM"
+  datos_estandar$ZPARAM_F1SD <- "SIE"
+  message("    [DEBUG] Fase 1 configurada")
+  
+  # Fase 2: CACA1 → CACA2
+  message("    [DEBUG] Configurando Fase 2...")
+  datos_estandar$ZACT_2RE12 <- caca1     # Mantener fase anterior = no movimiento
+  datos_estandar$ZACT_2RE34 <- caca1     # Mantener fase anterior = no movimiento
+  datos_estandar$ZACT_F2SD <- caca2      # Mover a CACA2 via SD
+  datos_estandar$ZPARAM_2RE34 <- "NO PARAM"
+  datos_estandar$ZPARAM_F2SD <- "SIE"
+  message("    [DEBUG] Fase 2 configurada")
+  
+  # Fase 3: CACA2 → CACA3
+  message("    [DEBUG] Configurando Fase 3...")
+  datos_estandar$ZACT_3RE12 <- caca2     # Mantener fase anterior = no movimiento
+  datos_estandar$ZACT_3RE34 <- caca2     # Mantener fase anterior = no movimiento
+  datos_estandar$ZACT_F3SD <- caca3      # Mover a CACA3 via SD
+  datos_estandar$ZPARAM_3RE34 <- "NO PARAM"
+  datos_estandar$ZPARAM_F3SD <- "SIE"
+  message("    [DEBUG] Fase 3 configurada")
+  
+  # Limpiar NAs en columnas de caracteres
+  message("    [DEBUG] Limpiando NAs...")
+  cols_char <- c("ZCENT_GEST", "ZCT_SUBCAC_E", "ZACT_E",
+                 "ZACT_RE12", "ZACT_RE34", "ZACT_F1SD", "ZPARAM_RE34", "ZPARAM_F1SD",
+                 "ZACT_2RE12", "ZACT_2RE34", "ZACT_F2SD", "ZPARAM_2RE34", "ZPARAM_F2SD",
+                 "ZACT_3RE12", "ZACT_3RE34", "ZACT_F3SD", "ZPARAM_3RE34", "ZPARAM_F3SD")
+  
+  for (col in cols_char) {
+    datos_estandar[[col]][is.na(datos_estandar[[col]])] <- ""
+  }
+  message("    [DEBUG] NAs limpiados")
+  
+  n_registros <- nrow(datos_estandar)
+  importe_total <- sum(datos_estandar$ZIMPORT, na.rm = TRUE)
+  
+  message(sprintf("  ✓ Transformación SIE completada: %s registros, importe total: %s €",
+                  formatC(n_registros, format = "d", big.mark = " "),
+                  formatC(importe_total, format = "f", big.mark = " ", decimal.mark = ",", digits = 2)))
+  
+  return(datos_estandar)
+}
+
+#' Leer un archivo CSV con detección automática de formato
+#' 
+#' @param archivo Ruta al archivo CSV
+#' @param sep Separador de columnas
+#' @param encodings Vector de encodings a probar
+#' @return data.frame con estructura estándar (transformado si es SIE)
+leer_archivo_csv_auto <- function(archivo, sep, encodings) {
+  
+  message(sprintf("[DEBUG] Intentando leer archivo: %s", basename(archivo)))
+  
+  for (enc in encodings) {
+    message(sprintf("[DEBUG] Probando encoding: %s", enc))
+    
+    resultado <- try({
+      # Leer con read_delim que es más robusto
+      message("[DEBUG] Llamando a read_delim...")
+      datos <- read_delim(
+        archivo, 
+        delim = sep, 
+        locale = locale(
+          encoding = enc,
+          decimal_mark = ",",
+          grouping_mark = ""
+        ),
+        col_types = cols(.default = "c"),  # Todo como character
+        trim_ws = TRUE,
+        show_col_types = FALSE
+      )
+      
+      # Convertir tibble a data.frame
+      datos <- as.data.frame(datos, stringsAsFactors = FALSE)
+      message(sprintf("[DEBUG] read_delim completado: %d filas, %d columnas", nrow(datos), ncol(datos)))
+      
+      # Limpiar nombres de columnas
+      message("[DEBUG] Limpiando nombres de columnas...")
+      names(datos) <- trimws(names(datos))
+      message(sprintf("[DEBUG] Columnas: %s", paste(head(names(datos), 5), collapse=", ")))
+      
+      # Detectar formato
+      message("[DEBUG] Detectando formato...")
+      es_sie <- es_formato_sie(names(datos))
+      message(sprintf("[DEBUG] ¿Es formato SIE?: %s", es_sie))
+      
+      if (es_sie) {
+        # Transformar SIE a estándar
+        message(sprintf("✓ Archivo SIE detectado: '%s' (encoding '%s')", basename(archivo), enc))
+        datos_estandar <- transformar_sie_a_estandar(datos)
+        return(datos_estandar)
+        
+      } else {
+        # Formato estándar: procesar como antes
+        message("[DEBUG] Es formato estándar, procesando...")
+        columnas_disponibles <- intersect(COLUMNAS_LECTURA, names(datos))
+        
+        if (length(columnas_disponibles) == 0) {
+          warning(sprintf("No se encontraron columnas reconocibles en '%s'", basename(archivo)))
+          return(NULL)
+        }
+        
+        datos <- datos[, columnas_disponibles, drop = FALSE]
+        
+        # Aplicar correcciones y tipos
+        datos <- corregir_valores_cac(datos)
+        datos <- aplicar_tipos_columnas(datos)
+        
+        # Limpiar NAs en caracteres (CRÍTICO para evitar errores substr)
+        for (col in names(datos)) {
+          if (is.character(datos[[col]])) {
+            datos[[col]][is.na(datos[[col]])] <- ""
+          }
+        }
+        
+        # Asegurar que ZCT_SUBCAC_E existe y no tiene NAs
+        if (!"ZCT_SUBCAC_E" %in% names(datos)) {
+          datos$ZCT_SUBCAC_E <- ""
+        } else {
+          datos$ZCT_SUBCAC_E[is.na(datos$ZCT_SUBCAC_E)] <- ""
+        }
+        
+        message(sprintf("✓ Archivo estándar leído: '%s' con encoding '%s' (%s filas)", 
+                        basename(archivo), enc, formatC(nrow(datos), format = "d", big.mark = " ")))
+        return(datos)
+      }
+      
+    }, silent = TRUE)
+    
+    if (!inherits(resultado, "try-error")) {
+      message("[DEBUG] Lectura exitosa, retornando datos")
+      return(resultado)
+    } else {
+      message(sprintf("[DEBUG] Error con encoding %s: %s", enc, as.character(resultado)))
+    }
+  }
+  
+  warning(sprintf("No se pudo leer el archivo '%s'", basename(archivo)))
+  return(NULL)
+}
+
+# =============================================================================
+# 4. CARGA DE DATOS SIMPLIFICADA
 # =============================================================================
 
 #' Carga datos de reparto desde archivos CSV
@@ -163,7 +372,7 @@ carga_datos_reparto <- function(
   
   # Leer archivos
   datos_list <- lapply(archivos_encontrados, function(archivo) {
-    leer_archivo_csv(archivo, sep, encodings)
+    leer_archivo_csv_auto(archivo, sep, encodings)
   })
   
   # Filtrar elementos NULL y combinar
@@ -180,7 +389,7 @@ carga_datos_reparto <- function(
   return(datos_combinados)
 }
 
-#' Leer un archivo CSV con manejo de encoding
+#' Leer un archivo CSV con manejo de encoding (MÉTODO ANTIGUO - MANTENER POR COMPATIBILIDAD)
 leer_archivo_csv <- function(archivo, sep, encodings) {
   for (enc in encodings) {
     resultado <- try({
@@ -213,7 +422,7 @@ leer_archivo_csv <- function(archivo, sep, encodings) {
 }
 
 # =============================================================================
-# 4. LIMPIEZA Y FILTRADO
+# 5. LIMPIEZA Y FILTRADO
 # =============================================================================
 
 #' Limpia y agrupa los datos de reparto
@@ -269,7 +478,7 @@ filtrar_datos_reparto <- function(datos, centro_gestor = NULL, cacs_origen = NUL
 
 
 # =============================================================================
-# FUNCIONES DE EXTRACCIÓN DE MOVIMIENTOS - VERSIÓN CORREGIDA
+# 6. FUNCIONES DE EXTRACCIÓN DE MOVIMIENTOS - VERSIÓN CORREGIDA
 # =============================================================================
 
 #' Extraer datos de una fase específica
@@ -377,7 +586,9 @@ detectar_estrategia_subcac <- function(datos) {
   }
   
   # CAC padre del SUBCAC (primeros 3 dígitos)
-  cac_padre <- substr(datos$ZCT_SUBCAC_E, 1, 3)
+  # Proteger contra NAs antes de substr
+  subcac_seguro <- ifelse(tiene_subcac, datos$ZCT_SUBCAC_E, "")
+  cac_padre <- substr(subcac_seguro, 1, 3)
   
   # Revisar cada fase en orden
   for (fase_num in 1:3) {
@@ -438,11 +649,8 @@ extraer_movimientos_fase <- function(
   
   fase_config <- CONFIG_FASES[[as.character(fase_num)]]
   
-  # ---- 1. PREPARAR NIVEL DE AGREGACIÓN ----
-  
-  if (nivel_agregacion %in% c("cac1", "cac2")) {
-    movimientos_fase <- aplicar_agregacion_cac(movimientos_fase, nivel_agregacion)
-  }
+  # ---- 1. NO MODIFICAR movimientos_fase AQUÍ ----
+  # La agregación se aplica solo a columnas específicas según sea necesario
   
   # ---- 2. DETERMINAR ORIGEN SEGÚN FASE Y ESTRATEGIA ----
   
@@ -468,23 +676,27 @@ extraer_movimientos_fase <- function(
                                   (estrategia_subcac$primera_fase_movimiento > 1 & 
                                    estrategia_subcac$tipo_primer_movimiento != "RE12")
           
-          cac_padre <- substr(origen_base, 1, 3)
-          origen <- ifelse(necesita_acumulacion & nchar(origen_base) == 4,
+          # Proteger substr contra NAs
+          origen_base_seguro <- ifelse(is.na(origen_base), "", origen_base)
+          cac_padre <- substr(origen_base_seguro, 1, 3)
+          origen <- ifelse(necesita_acumulacion & nchar(origen_base_seguro) == 4,
                           cac_padre,
-                          origen_base)
+                          origen_base_seguro)
           
           if (debug && any(necesita_acumulacion, na.rm = TRUE)) {
             n_acum <- sum(necesita_acumulacion, na.rm = TRUE)
             message(sprintf("     [DEBUG] Fase 1: %d registros SUBCAC acumulados a CAC (requieren acumulación previa)", n_acum))
           }
         } else {
-          origen <- origen_base
+          # Proteger contra NAs incluso sin estrategia
+          origen <- ifelse(is.na(origen_base), "", origen_base)
         }
       } else {
-        origen <- movimientos_fase$ZACT_E
+        # Proteger contra NAs
+        origen <- ifelse(is.na(movimientos_fase$ZACT_E), "", movimientos_fase$ZACT_E)
       }
     } else {
-      # Para CAC, CAC1, CAC2: usar ZACT_E agregado
+      # Para CAC, CAC1, CAC2: usar ZACT_E agregado (agregar_cac ya protege contra NAs)
       origen <- agregar_cac(movimientos_fase$ZACT_E, nivel_agregacion)
     }
   } else {
@@ -503,30 +715,36 @@ extraer_movimientos_fase <- function(
       
       if (any(necesita_acumulacion_ahora, na.rm = TRUE)) {
         # Para estos registros, si el origen es SUBCAC, acumularlo a CAC
+        # Proteger contra NAs
+        origen_previo_seguro <- ifelse(is.na(origen_previo), "", origen_previo)
         origen <- ifelse(
-          necesita_acumulacion_ahora & nchar(origen_previo) == 4,
-          substr(origen_previo, 1, 3),  # Acumular a CAC
-          origen_previo  # Mantener origen anterior
+          necesita_acumulacion_ahora & nchar(origen_previo_seguro) == 4,
+          substr(origen_previo_seguro, 1, 3),  # Acumular a CAC
+          origen_previo_seguro  # Mantener origen anterior
         )
         
         if (debug) {
-          n_acum <- sum(necesita_acumulacion_ahora & nchar(origen_previo) == 4, na.rm = TRUE)
+          n_acum <- sum(necesita_acumulacion_ahora & nchar(origen_previo_seguro) == 4, na.rm = TRUE)
           if (n_acum > 0) {
             message(sprintf("     [DEBUG] Fase %d: %d registros SUBCAC acumulados a CAC antes de movimiento RE34/SD", 
                            fase_num, n_acum))
           }
         }
       } else {
-        origen <- origen_previo
+        # Proteger contra NAs
+        origen <- ifelse(is.na(origen_previo), "", origen_previo)
       }
     } else {
-      origen <- origen_previo
+      # Proteger contra NAs
+      origen <- ifelse(is.na(origen_previo), "", origen_previo)
     }
   }
   
   if (debug && fase_num == 1) {
-    n_subcac <- sum(nchar(origen) == 4)
-    n_cac <- sum(nchar(origen) == 3)
+    # Proteger contra NAs antes de nchar
+    origen_para_debug <- ifelse(is.na(origen), "", origen)
+    n_subcac <- sum(nchar(origen_para_debug) == 4)
+    n_cac <- sum(nchar(origen_para_debug) == 3)
     message(sprintf("     [DEBUG] Orígenes Fase %d: %d SUBCAC, %d CAC", fase_num, n_subcac, n_cac))
   }
   
@@ -565,7 +783,9 @@ extraer_movimientos_fase <- function(
   # ---- 5. APLICAR PRIORIDADES DE MOVIMIENTO ----
   
   # Para comparaciones: extraer CAC del origen (si es SUBCAC)
-  origen_cac <- ifelse(nchar(origen) == 4, substr(origen, 1, 3), origen)
+  # Proteger contra NAs
+  origen_seguro <- ifelse(is.na(origen), "", origen)
+  origen_cac <- ifelse(nchar(origen_seguro) == 4, substr(origen_seguro, 1, 3), origen_seguro)
   
   # Prioridad 1: RE12
   if (col_re12_proc %in% names(movimientos_fase)) {
@@ -579,7 +799,9 @@ extraer_movimientos_fase <- function(
       
       if (debug) {
         n_re12 <- sum(idx_re12)
-        n_desde_subcac <- sum(idx_re12 & nchar(origen) == 4)
+        # Proteger contra NAs
+        origen_para_debug <- ifelse(is.na(origen), "", origen)
+        n_desde_subcac <- sum(idx_re12 & nchar(origen_para_debug) == 4)
         message(sprintf("     [DEBUG] Aplicados %d movimientos RE12 (%d desde SUBCAC)", 
                        n_re12, n_desde_subcac))
       }
@@ -599,7 +821,9 @@ extraer_movimientos_fase <- function(
       
       if (debug) {
         n_re34 <- sum(idx_re34)
-        n_desde_subcac <- sum(idx_re34 & nchar(origen) == 4)
+        # Proteger contra NAs
+        origen_para_debug <- ifelse(is.na(origen), "", origen)
+        n_desde_subcac <- sum(idx_re34 & nchar(origen_para_debug) == 4)
         message(sprintf("     [DEBUG] Aplicados %d movimientos RE34 (%d desde SUBCAC - debería ser 0)", 
                        n_re34, n_desde_subcac))
         if (n_desde_subcac > 0) {
@@ -622,7 +846,9 @@ extraer_movimientos_fase <- function(
       
       if (debug) {
         n_sd <- sum(idx_sd)
-        n_desde_subcac <- sum(idx_sd & nchar(origen) == 4)
+        # Proteger contra NAs
+        origen_para_debug <- ifelse(is.na(origen), "", origen)
+        n_desde_subcac <- sum(idx_sd & nchar(origen_para_debug) == 4)
         message(sprintf("     [DEBUG] Aplicados %d movimientos SD (%d desde SUBCAC - debería ser 0)", 
                        n_sd, n_desde_subcac))
         if (n_desde_subcac > 0) {
@@ -889,7 +1115,7 @@ extraer_movimientos <- function(
 }
 
 # =============================================================================
-# 6. FUNCIONES AUXILIARES DE UTILIDAD
+# 7. FUNCIONES AUXILIARES DE UTILIDAD
 # =============================================================================
 
 #' Pipeline completo de carga y limpieza

@@ -191,11 +191,16 @@ construir_enlaces_sankey <- function(
     }
     
     # Crear un subset de la matriz solo con registros válidos para esta fase
-    fase_dt <- matriz[!is.na(get(col_origen)) & get(col_origen) != "" &
-                      !is.na(get(col_destino)) & get(col_destino) != "" &
-                      !is.na(importe) & importe > 0]
+    # CORRECCIÓN: Permitir importes negativos y valores vacíos (para cuadrar con Traza)
+    fase_dt <- matriz[!is.na(get(col_origen)) & 
+                      !is.na(get(col_destino)) & 
+                      !is.na(importe) & importe != 0]
     
     if (nrow(fase_dt) == 0) next
+    
+    # Reemplazar cadenas vacías con "Sin Dato" para visualización
+    fase_dt[get(col_origen) == "", (col_origen) := "Sin Dato"]
+    fase_dt[get(col_destino) == "", (col_destino) := "Sin Dato"]
     
     # Obtener columnas de tipo y parámetro
     nombre_tipo   <- paste0("tipo_fase_", fase)
