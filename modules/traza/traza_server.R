@@ -15,6 +15,53 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
   # Variable reactiva para almacenar resultados de la Traza
   traza_data <- reactiveVal(NULL)
   
+  # Cargar datos de mapeo CAC -> Linea/Modalidad
+  mapping_cac <- reactive({
+      tryCatch({
+          df <- readxl::read_excel(".data/linea_actividad_unificada.xlsx")
+          # Asegurar que CAC es string para el join
+          df$CAC <- as.character(df$CAC)
+          df
+      }, error = function(e) {
+          NULL
+      })
+  })
+
+  # Renderizar selectores dinámicamente
+  output$ui_modal_traza_linea <- renderUI({
+      if (is.null(input$modal_traza_nivel_agregacion) || input$modal_traza_nivel_agregacion != "cac") {
+          return(NULL)
+      }
+      
+      map_data <- mapping_cac()
+      choices <- c("Todos")
+      
+      if (!is.null(map_data)) {
+          lineas <- sort(unique(map_data$`Línea de Actividad`))
+          choices <- c("Todos", lineas)
+      }
+      
+      selectInput("modal_traza_linea", "Línea de Actividad:", 
+                  choices = choices, selected = "Todos")
+  })
+  
+  output$ui_modal_traza_modalidad <- renderUI({
+      if (is.null(input$modal_traza_nivel_agregacion) || input$modal_traza_nivel_agregacion != "cac") {
+          return(NULL)
+      }
+      
+      map_data <- mapping_cac()
+      choices <- c("Todos")
+      
+      if (!is.null(map_data)) {
+          modalidades <- sort(unique(map_data$Modalidad))
+          choices <- c("Todos", modalidades)
+      }
+      
+      selectInput("modal_traza_modalidad", "Modalidad:", 
+                  choices = choices, selected = "Todos")
+  })
+  
   # Limpiar memoria al cambiar de pestaña
   observe({
     if (!is.null(active_panel()) && active_panel() != "traza") {
@@ -211,9 +258,96 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
           tabla_final[[col]] <- 0
         }
       }
+
+      # Join with mapping
+      # Only if level is CAC or linea or modalidad
+      if (nivel_agregacion %in% c("cac", "linea", "modalidad")) {
+          map_data <- mapping_cac()
+          if (!is.null(map_data)) {
+              # tabla_final has CAC_Final. map_data has CAC.
+              # Ensure types match
+              tabla_final$CAC_Final <- as.character(tabla_final$CAC_Final)
+              
+              # Left join to keep all CACs from calculation, adding info where available
+              tabla_final <- tabla_final %>%
+                  left_join(map_data, by = c("CAC_Final" = "CAC"))
+                  
+              # Filter by Linea (only if level is CAC)
+              if (nivel_agregacion == "cac" && !is.null(input$modal_traza_linea) && input$modal_traza_linea != "Todos") {
+                  tabla_final <- tabla_final %>% 
+                      filter(`Línea de Actividad` == input$modal_traza_linea)
+              }
+              
+              # Filter by Modalidad (only if level is CAC)
+              if (nivel_agregacion == "cac" && !is.null(input$modal_traza_modalidad) && input$modal_traza_modalidad != "Todos") {
+                  tabla_final <- tabla_final %>% 
+                      filter(Modalidad == input$modal_traza_modalidad)
+              }
+          }
+      }
       
-      # Ordenar columnas: CAC_Final, CD, F1, F2, F3
-      tabla_final <- tabla_final[, c("CAC_Final", "CD", "F1", "F2", "F3"), drop = FALSE]
+      # Agregación especial para Línea o Modalidad
+      if (nivel_agregacion == "linea") {
+          # Rellenar NAs antes de agrupar
+          tabla_final$`Línea de Actividad`[is.na(tabla_final$`Línea de Actividad`)] <- "Sin Asignar"
+          
+          # Agrupar por Línea de Actividad
+          tabla_final <- tabla_final %>%
+              group_by(`Línea de Actividad`) %>%
+              summarise(
+                  CD = sum(CD, na.rm = TRUE),
+                  F1 = sum(F1, na.rm = TRUE),
+                  F2 = sum(F2, na.rm = TRUE),
+                  F3 = sum(F3, na.rm = TRUE),
+                  .groups = "drop"
+              ) %>%
+              rename(CAC_Final = `Línea de Actividad`)
+              
+      } else if (nivel_agregacion == "modalidad") {
+          # Rellenar NAs antes de agrupar
+          tabla_final$Modalidad[is.na(tabla_final$Modalidad)] <- "Sin Asignar"
+          
+          # Agrupar por Modalidad
+          tabla_final <- tabla_final %>%
+              group_by(Modalidad) %>%
+              summarise(
+                  CD = sum(CD, na.rm = TRUE),
+                  F1 = sum(F1, na.rm = TRUE),
+                  F2 = sum(F2, na.rm = TRUE),
+                  F3 = sum(F3, na.rm = TRUE),
+                  .groups = "drop"
+              ) %>%
+              rename(CAC_Final = Modalidad)
+      }
+      
+      # Capture checkbox values
+      mostrar_linea <- if (!is.null(input$modal_traza_mostrar_linea) && nivel_agregacion == "cac") input$modal_traza_mostrar_linea else FALSE
+      mostrar_modalidad <- if (!is.null(input$modal_traza_mostrar_modalidad) && nivel_agregacion == "cac") input$modal_traza_mostrar_modalidad else FALSE
+
+      # Handle column visibility
+      # Remove columns if not shown
+      if (!mostrar_linea && "Línea de Actividad" %in% names(tabla_final)) {
+          tabla_final$`Línea de Actividad` <- NULL
+      }
+      if (!mostrar_modalidad && "Modalidad" %in% names(tabla_final)) {
+          tabla_final$Modalidad <- NULL
+      }
+
+      # Ordenar columnas: CAC_Final, [Linea, Modalidad], CD, F1, F2, F3
+      cols_metadata <- c("CAC_Final")
+      if (mostrar_linea && "Línea de Actividad" %in% names(tabla_final)) {
+          cols_metadata <- c(cols_metadata, "Línea de Actividad")
+      }
+      if (mostrar_modalidad && "Modalidad" %in% names(tabla_final)) {
+          cols_metadata <- c(cols_metadata, "Modalidad")
+      }
+      cols_values <- c("CD", "F1", "F2", "F3")
+      
+      # Keep any other columns that might exist
+      known_cols <- c(cols_metadata, cols_values)
+      other_cols <- setdiff(names(tabla_final), known_cols)
+      
+      tabla_final <- tabla_final[, c(cols_metadata, cols_values, other_cols), drop = FALSE]
       
       # Calcular Total por CAC
       tabla_final$Total <- tabla_final$CD + tabla_final$F1 + tabla_final$F2 + tabla_final$F3
@@ -229,12 +363,8 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
         tabla_final$Pct_F3 <- (tabla_final$F3 / total_safe) * 100
         
         # Reordenar columnas
-        tabla_final <- tabla_final[, c("CAC_Final", 
-                                       "CD", "Pct_CD", 
-                                       "F1", "Pct_F1", 
-                                       "F2", "Pct_F2", 
-                                       "F3", "Pct_F3", 
-                                       "Total")]
+        cols_pct <- c("CD", "Pct_CD", "F1", "Pct_F1", "F2", "Pct_F2", "F3", "Pct_F3", "Total")
+        tabla_final <- tabla_final[, c(cols_metadata, cols_pct), drop = FALSE]
       }
       
       # Filtrar por CAC destino si se especificó
@@ -278,7 +408,9 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
           importe_f2 = importe_f2,
           importe_f3 = importe_f3,
           nivel_agregacion = nivel_agregacion,
-          mostrar_pct = mostrar_pct
+          mostrar_pct = mostrar_pct,
+          mostrar_linea = mostrar_linea,
+          mostrar_modalidad = mostrar_modalidad
         )
       ))
       
@@ -357,6 +489,8 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
     
     tabla <- as.data.frame(traza$tabla)
     mostrar_pct <- if (!is.null(traza$info$mostrar_pct)) traza$info$mostrar_pct else FALSE
+    mostrar_linea <- if (!is.null(traza$info$mostrar_linea)) traza$info$mostrar_linea else FALSE
+    mostrar_modalidad <- if (!is.null(traza$info$mostrar_modalidad)) traza$info$mostrar_modalidad else FALSE
     
     # Formatear importes como texto para display
     tabla_display <- tabla
@@ -371,36 +505,63 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
       tabla_display$Pct_F1 <- paste0(formatC(tabla$Pct_F1, format = "f", digits = 1), "%")
       tabla_display$Pct_F2 <- paste0(formatC(tabla$Pct_F2, format = "f", digits = 1), "%")
       tabla_display$Pct_F3 <- paste0(formatC(tabla$Pct_F3, format = "f", digits = 1), "%")
-      
-      col_names <- c(
-        'CAC Final' = 'CAC_Final',
-        'CD' = 'CD', '% CD' = 'Pct_CD',
-        'F1' = 'F1', '% F1' = 'Pct_F1',
-        'F2' = 'F2', '% F2' = 'Pct_F2',
-        'F3' = 'F3', '% F3' = 'Pct_F3',
-        'Total' = 'Total'
-      )
-      
-      # Ajustar alineación para más columnas
-      col_defs <- list(
-        list(className = 'dt-center', targets = 1:9),
-        list(className = 'dt-left', targets = 0)
-      )
-    } else {
-      col_names <- c(
-        'CAC Final' = 'CAC_Final',
-        'Coste Directo (CD)' = 'CD',
-        'Fase 1 (F1)' = 'F1',
-        'Fase 2 (F2)' = 'F2',
-        'Fase 3 (F3)' = 'F3',
-        'Total' = 'Total'
-      )
-      
-      col_defs <- list(
-        list(className = 'dt-center', targets = 1:5),
-        list(className = 'dt-left', targets = 0)
-      )
     }
+
+    # Construct column names dynamically
+    base_names <- c('CAC Final' = 'CAC_Final')
+    
+    # Si estamos agrupando por línea o modalidad, cambiamos el nombre de la primera columna
+    if (!is.null(traza$info$nivel_agregacion)) {
+        if (traza$info$nivel_agregacion == "linea") {
+            base_names <- c('Línea de Actividad' = 'CAC_Final')
+        } else if (traza$info$nivel_agregacion == "modalidad") {
+            base_names <- c('Modalidad' = 'CAC_Final')
+        }
+    }
+    
+    extra_names <- c()
+    if (mostrar_linea && "Línea de Actividad" %in% names(tabla_display)) {
+        extra_names <- c(extra_names, 'Línea de Actividad' = 'Línea de Actividad')
+    }
+    if (mostrar_modalidad && "Modalidad" %in% names(tabla_display)) {
+        extra_names <- c(extra_names, 'Modalidad' = 'Modalidad')
+    }
+
+    if (mostrar_pct) {
+        value_names <- c(
+            'CD' = 'CD', '% CD' = 'Pct_CD',
+            'F1' = 'F1', '% F1' = 'Pct_F1',
+            'F2' = 'F2', '% F2' = 'Pct_F2',
+            'F3' = 'F3', '% F3' = 'Pct_F3',
+            'Total' = 'Total'
+        )
+    } else {
+        value_names <- c(
+            'Coste Directo (CD)' = 'CD',
+            'Fase 1 (F1)' = 'F1',
+            'Fase 2 (F2)' = 'F2',
+            'Fase 3 (F3)' = 'F3',
+            'Total' = 'Total'
+        )
+    }
+    
+    col_names <- c(base_names, extra_names, value_names)
+    
+    # Calculate indices for centering
+    n_extra <- length(extra_names)
+    n_values <- length(value_names)
+    
+    targets_left <- c(0)
+    if (n_extra > 0) {
+        targets_left <- c(targets_left, 1:n_extra)
+    }
+    
+    targets_center <- (n_extra + 1):(n_extra + n_values)
+    
+    col_defs <- list(
+        list(className = 'dt-center', targets = targets_center),
+        list(className = 'dt-left', targets = targets_left)
+    )
     
     DT::datatable(
       tabla_display,
@@ -435,6 +596,8 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
     
     tabla <- as.data.frame(traza$tabla)
     mostrar_pct <- if (!is.null(traza$info$mostrar_pct)) traza$info$mostrar_pct else FALSE
+    mostrar_linea <- if (!is.null(traza$info$mostrar_linea)) traza$info$mostrar_linea else FALSE
+    mostrar_modalidad <- if (!is.null(traza$info$mostrar_modalidad)) traza$info$mostrar_modalidad else FALSE
     
     # Formatear importes
     tabla_display <- tabla
@@ -449,35 +612,63 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
       tabla_display$Pct_F1 <- paste0(formatC(tabla$Pct_F1, format = "f", digits = 1), "%")
       tabla_display$Pct_F2 <- paste0(formatC(tabla$Pct_F2, format = "f", digits = 1), "%")
       tabla_display$Pct_F3 <- paste0(formatC(tabla$Pct_F3, format = "f", digits = 1), "%")
-      
-      col_names <- c(
-        'CAC Final' = 'CAC_Final',
-        'CD' = 'CD', '% CD' = 'Pct_CD',
-        'F1' = 'F1', '% F1' = 'Pct_F1',
-        'F2' = 'F2', '% F2' = 'Pct_F2',
-        'F3' = 'F3', '% F3' = 'Pct_F3',
-        'Total' = 'Total'
-      )
-      
-      col_defs <- list(
-        list(className = 'dt-center', targets = 1:9),
-        list(className = 'dt-left', targets = 0)
-      )
-    } else {
-      col_names <- c(
-        'CAC Final' = 'CAC_Final',
-        'Coste Directo (CD)' = 'CD',
-        'Fase 1 (F1)' = 'F1',
-        'Fase 2 (F2)' = 'F2',
-        'Fase 3 (F3)' = 'F3',
-        'Total' = 'Total'
-      )
-      
-      col_defs <- list(
-        list(className = 'dt-center', targets = 1:5),
-        list(className = 'dt-left', targets = 0)
-      )
     }
+
+    # Construct column names dynamically
+    base_names <- c('CAC Final' = 'CAC_Final')
+    
+    # Si estamos agrupando por línea o modalidad, cambiamos el nombre de la primera columna
+    if (!is.null(traza$info$nivel_agregacion)) {
+        if (traza$info$nivel_agregacion == "linea") {
+            base_names <- c('Línea de Actividad' = 'CAC_Final')
+        } else if (traza$info$nivel_agregacion == "modalidad") {
+            base_names <- c('Modalidad' = 'CAC_Final')
+        }
+    }
+    
+    extra_names <- c()
+    if (mostrar_linea && "Línea de Actividad" %in% names(tabla_display)) {
+        extra_names <- c(extra_names, 'Línea de Actividad' = 'Línea de Actividad')
+    }
+    if (mostrar_modalidad && "Modalidad" %in% names(tabla_display)) {
+        extra_names <- c(extra_names, 'Modalidad' = 'Modalidad')
+    }
+
+    if (mostrar_pct) {
+        value_names <- c(
+            'CD' = 'CD', '% CD' = 'Pct_CD',
+            'F1' = 'F1', '% F1' = 'Pct_F1',
+            'F2' = 'F2', '% F2' = 'Pct_F2',
+            'F3' = 'F3', '% F3' = 'Pct_F3',
+            'Total' = 'Total'
+        )
+    } else {
+        value_names <- c(
+            'Coste Directo (CD)' = 'CD',
+            'Fase 1 (F1)' = 'F1',
+            'Fase 2 (F2)' = 'F2',
+            'Fase 3 (F3)' = 'F3',
+            'Total' = 'Total'
+        )
+    }
+    
+    col_names <- c(base_names, extra_names, value_names)
+    
+    # Calculate indices for centering
+    n_extra <- length(extra_names)
+    n_values <- length(value_names)
+    
+    targets_left <- c(0)
+    if (n_extra > 0) {
+        targets_left <- c(targets_left, 1:n_extra)
+    }
+    
+    targets_center <- (n_extra + 1):(n_extra + n_values)
+    
+    col_defs <- list(
+        list(className = 'dt-center', targets = targets_center),
+        list(className = 'dt-left', targets = targets_left)
+    )
     
     showModal(modalDialog(
       title = "Análisis de Costes por CAC - Vista Expandida",
@@ -528,18 +719,25 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
       mostrar_pct <- if (!is.null(traza$info$mostrar_pct)) traza$info$mostrar_pct else FALSE
       
       # Renombrar columnas para mejor comprensión
+      # Si hay columnas extra, se mantienen con su nombre
+      
       if (mostrar_pct) {
         # Si hay porcentajes, los nombres ya son descriptivos (Pct_CD, etc)
-        # Solo ajustamos los principales si es necesario, o dejamos los del data.frame
-        # Pero para consistencia con la versión sin porcentajes:
+        # Solo ajustamos los principales si es necesario
         names(tabla)[names(tabla) == "CAC_Final"] <- "CAC_Final"
         names(tabla)[names(tabla) == "CD"] <- "Coste_Directo_CD"
         names(tabla)[names(tabla) == "F1"] <- "Fase_1_F1"
         names(tabla)[names(tabla) == "F2"] <- "Fase_2_F2"
         names(tabla)[names(tabla) == "F3"] <- "Fase_3_F3"
-        # Los de porcentaje (Pct_CD, etc) se quedan igual
       } else {
-        names(tabla) <- c("CAC_Final", "Coste_Directo_CD", "Fase_1_F1", "Fase_2_F2", "Fase_3_F3", "Total")
+        # Si no hay porcentajes, renombramos las columnas de valores
+        # Pero cuidado con las columnas extra
+        names(tabla)[names(tabla) == "CAC_Final"] <- "CAC_Final"
+        names(tabla)[names(tabla) == "CD"] <- "Coste_Directo_CD"
+        names(tabla)[names(tabla) == "F1"] <- "Fase_1_F1"
+        names(tabla)[names(tabla) == "F2"] <- "Fase_2_F2"
+        names(tabla)[names(tabla) == "F3"] <- "Fase_3_F3"
+        # Total ya se llama Total
       }
       
       write.csv(tabla, file, row.names = FALSE, fileEncoding = "UTF-8")

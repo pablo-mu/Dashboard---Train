@@ -96,9 +96,16 @@ create_traza_filters <- function() {
           choices = c(
             "CAC (3 dígitos)" = "cac",
             "CAC1 (1 dígito)" = "cac1",
-            "CAC2 (2 dígitos)" = "cac2"
+            "CAC2 (2 dígitos)" = "cac2",
+            "Línea de Actividad" = "linea",
+            "Modalidad" = "modalidad"
           ),
           selected = "cac"
+        ),
+        conditionalPanel(
+          condition = "input.modal_traza_nivel_agregacion == 'cac'",
+          uiOutput("ui_modal_traza_linea"),
+          uiOutput("ui_modal_traza_modalidad")
         ),
         helpText("Aplica a todas las fases (Fase 0, 1, 2 y 3)")
       ),
@@ -107,6 +114,19 @@ create_traza_filters <- function() {
           "modal_traza_mostrar_porcentajes",
           "Mostrar columnas de porcentaje (%)",
           value = FALSE
+        ),
+        conditionalPanel(
+          condition = "input.modal_traza_nivel_agregacion == 'cac'",
+          checkboxInput(
+            "modal_traza_mostrar_linea",
+            "Mostrar Línea de Actividad",
+            value = FALSE
+          ),
+          checkboxInput(
+            "modal_traza_mostrar_modalidad",
+            "Mostrar Modalidad",
+            value = FALSE
+          )
         ),
         div(
           style = "padding: 20px; background-color: #f8f9fa; border-radius: 4px; margin-top: 10px;",
