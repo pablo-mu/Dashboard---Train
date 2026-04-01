@@ -48,8 +48,12 @@ create_dashboard_sidebar <- function(config) {
           ),
           
           # Filtros de Origen y Destino
-          menuItem("ORIGEN & DESTINO", tabName = "origen_destino", icon = icon("arrows-left-right"),
+          menuItem("FILTROS POR FASE", tabName = "origen_destino", icon = icon("arrows-left-right"),
             uiOutput("origen_filter"),
+            div(style = "margin-top: 10px;"),
+            uiOutput("fase1_filter"),
+            div(style = "margin-top: 10px;"),
+            uiOutput("fase2_filter"),
             div(style = "margin-top: 10px;"),
             uiOutput("destino_filter")
           ),

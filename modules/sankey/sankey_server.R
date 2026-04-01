@@ -179,6 +179,20 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
       NULL
     }
     
+    # Fase 1
+    fase1_val <- if (!is.null(input$fase1) && length(input$fase1) > 0 && input$fase1[1] != "") {
+      input$fase1
+    } else {
+      NULL
+    }
+
+    # Fase 2
+    fase2_val <- if (!is.null(input$fase2) && length(input$fase2) > 0 && input$fase2[1] != "") {
+      input$fase2
+    } else {
+      NULL
+    }
+    
     # Mes
     mes_val <- if (!is.null(input$mes) && length(input$mes) > 0 && input$mes[1] != "") {
       as.numeric(input$mes)
@@ -235,6 +249,8 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
         nivel_agregacion = nivel_agregacion_val,
         cac_subcac_origen = cac_subcac_origen_val,
         cac_subcac_destino = cac_subcac_destino_val,
+        fase1_filter = fase1_val,
+        fase2_filter = fase2_val,
         mes = mes_val,
         anyo = anyo_val,
         fases_incluir = fases_incluir_val,
@@ -417,6 +433,58 @@ create_sankey_server <- function(input, output, session, datos_raw, active_panel
     
     DT::datatable(
       enlaces_display,
+      options = list(
+        scrollX = TRUE,
+        scrollY = "350px",
+        paging = TRUE,
+        pageLength = 15,
+        responsive = TRUE,
+        autoWidth = FALSE,
+        dom = 'frtip',
+        language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')
+      ),
+      rownames = FALSE,
+      class = "stripe hover compact"
+    )
+  })
+  
+  # ========================================================================
+  # OUTPUT - TABLA RESUMEN ACUMULADO
+  # ========================================================================
+  
+  output$sankey_resumen_table <- DT::renderDataTable({
+    sankey <- sankey_data()
+    
+    if (is.null(sankey)) {
+      return(DT::datatable(
+        data.frame(Mensaje = "Genera el diagrama de Sankey primero"),
+        options = list(dom = 't'),
+        rownames = FALSE
+      ))
+    }
+    
+    enlaces <- as.data.frame(sankey$enlaces_detallados)
+    
+    # Agrupar por Fase y Origen (Fase 0)
+    resumen <- enlaces %>%
+      group_by(fase, origen) %>%
+      summarise(
+        Importe = sum(value, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      arrange(fase, origen)
+      
+    resumen$Importe_fmt <- paste0(formatC(resumen$Importe, format = "f", big.mark = " ", digits = 2), "€")
+    
+    resumen_display <- resumen %>%
+      select(
+        Fase = fase,
+        `Origen (Fase 0)` = origen,
+        `Importe Acumulado` = Importe_fmt
+      )
+    
+    DT::datatable(
+      resumen_display,
       options = list(
         scrollX = TRUE,
         scrollY = "350px",

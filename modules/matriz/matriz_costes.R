@@ -27,6 +27,8 @@ calcular_matriz_costes <- function(
   nivel_agregacion = "cac",
   cac_subcac_origen = NULL,
   cac_subcac_destino = NULL,
+  fase1_filter = NULL,
+  fase2_filter = NULL,
   mes = NULL,
   anyo = NULL,
   fases_incluir = NULL,
@@ -98,6 +100,41 @@ calcular_matriz_costes <- function(
   if (is.null(matriz_movimientos_completa) || nrow(matriz_movimientos_completa) == 0) {
     warning("No se pudieron extraer movimientos")
     return(NULL)
+  }
+
+  # Expandir selecciones de fase si existen grupos (terminan en ..)
+  if (!is.null(fase1_filter) && "fase_1" %in% names(matriz_movimientos_completa)) {
+    fase1_filter <- expandir_seleccion_cac(fase1_filter, unique(matriz_movimientos_completa$fase_1))
+  }
+  if (!is.null(fase2_filter) && "fase_2" %in% names(matriz_movimientos_completa)) {
+    fase2_filter <- expandir_seleccion_cac(fase2_filter, unique(matriz_movimientos_completa$fase_2))
+  }
+  if (!is.null(cac_subcac_origen)) {
+    cac_subcac_origen <- expandir_seleccion_cac(cac_subcac_origen, unique(matriz_movimientos_completa$fase_0))
+  }
+  if (!is.null(cac_subcac_destino)) {
+     # Recopilar todos los posibles destinos
+     posibles_destinos <- c()
+     fases_a_procesar <- if (is.null(fases_incluir)) 1:3 else sort(unique(fases_incluir))
+     for (fase_num in fases_a_procesar) {
+       col_destino <- paste0("fase_", fase_num)
+       if (col_destino %in% names(matriz_movimientos_completa)) {
+         posibles_destinos <- c(posibles_destinos, unique(matriz_movimientos_completa[[col_destino]]))
+       }
+     }
+     cac_subcac_destino <- expandir_seleccion_cac(cac_subcac_destino, unique(posibles_destinos))
+  }
+
+  # Filtrar por Fase 1
+  if (!is.null(fase1_filter) && length(fase1_filter) > 0 && "fase_1" %in% names(matriz_movimientos_completa)) {
+    matriz_movimientos_completa <- matriz_movimientos_completa[fase_1 %in% fase1_filter]
+    if (nrow(matriz_movimientos_completa) == 0) return(NULL)
+  }
+
+  # Filtrar por Fase 2
+  if (!is.null(fase2_filter) && length(fase2_filter) > 0 && "fase_2" %in% names(matriz_movimientos_completa)) {
+    matriz_movimientos_completa <- matriz_movimientos_completa[fase_2 %in% fase2_filter]
+    if (nrow(matriz_movimientos_completa) == 0) return(NULL)
   }
 
   # 3. Convertir matriz de movimientos a formato largo (origen-destino-importe-fase)

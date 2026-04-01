@@ -106,65 +106,83 @@ create_dynamic_server <- function(input, output,
     cat("Botón de cargar datos presionado\n")  # Debug
     loading_modal_state("select")
     
+    # Listar archivos iniciales (CASA por defecto)
+    archivos_casa <- listar_archivos_reparto("CASA")
+    opciones_archivos <- if(length(archivos_casa) > 0) setNames(archivos_casa, basename(archivos_casa)) else c("No hay archivos" = "")
+    
     showModal(modalDialog(
       title = NULL,
       div(
         id = "load_data_modal_content",
-        style = "padding: 20px;",
-        h3("Seleccionar Fuente de Datos",
-           style = "margin-top: 0; margin-bottom: 20px; color: #2c3e50; font-weight: 600;"),
+        style = "padding: 15px;",
         
+        # Header con estilo mejorado
         div(
-          style = "margin-bottom: 30px;",
-          p("Elige la fuente de datos que deseas cargar:",
-            style = "color: #555; margin-bottom: 20px;")
+          style = "text-align: center; margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px;",
+          h3("Carga de Datos", 
+             style = "margin: 0; color: #2c3e50; font-weight: 700; letter-spacing: -0.5px;"),
+          p("Selecciona la fuente y el archivo a procesar", 
+            style = "color: #7f8c8d; margin-top: 5px; font-size: 14px;")
         ),
         
-        # Opciones de fuente
+        # Selección de Fuente con botones modernos
         div(
-          style = "display: flex; gap: 20px; justify-content: center;",
-          
-          # Opción CASA
-          div(
-            style = "flex: 1; max-width: 250px;",
-            actionButton(
-              "select_casa",
-              div(
-                icon("home", style = "font-size: 48px; margin-bottom: 15px;"),
-                h4("CASA", style = "margin: 10px 0;"),
-                p("Formato estándar", style = "font-size: 12px; color: #666; margin: 0;")
-              ),
-              style = "width: 100%; height: 180px; background-color: #f8f9fa; border: 2px solid #dee2e6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s;",
-              onclick = "this.style.backgroundColor='#e9ecef'; this.style.borderColor='#c8102e';"
-            )
-          ),
-          
-          # Opción SIE
-          div(
-            style = "flex: 1; max-width: 250px;",
-            actionButton(
-              "select_sie",
-              div(
-                icon("database", style = "font-size: 48px; margin-bottom: 15px;"),
-                h4("SIE", style = "margin: 10px 0;"),
-                p("Formato SIE", style = "font-size: 12px; color: #666; margin: 0;")
-              ),
-              style = "width: 100%; height: 180px; background-color: #f8f9fa; border: 2px solid #dee2e6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s;",
-              onclick = "this.style.backgroundColor='#e9ecef'; this.style.borderColor='#c8102e';"
+          style = "margin-bottom: 25px;",
+          tags$label("Fuente de Datos:", style = "margin-bottom: 10px; display: block; color: #34495e;"),
+          shinyWidgets::radioGroupButtons(
+            inputId = "modal_fuente",
+            label = NULL,
+            choices = c("CASA", "SIE"),
+            selected = "CASA",
+            justified = TRUE,
+            status = "primary",
+            individual = TRUE,
+            checkIcon = list(
+              yes = icon("check"),
+              no = icon("times")
             )
           )
+        ),
+        
+        # Selección de Archivo con búsqueda
+        div(
+          style = "margin-bottom: 30px;",
+          shinyWidgets::pickerInput(
+            inputId = "modal_archivo",
+            label = "Seleccionar Archivo:",
+            choices = opciones_archivos,
+            options = list(
+              `live-search` = TRUE,
+              `none-selected-text` = "Sin archivos disponibles",
+              `style` = "btn-outline-secondary",
+              `size` = 10
+            ),
+            width = "100%"
+          )
+        ),
+        
+        # Botón de Acción
+        div(
+          style = "text-align: center; margin-top: 10px;",
+          actionButton("modal_cargar", "CARGAR DATOS",
+                       icon = icon("cloud-upload-alt"),
+                       class = "btn-danger btn-lg",
+                       style = "width: 100%; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 6px rgba(50,50,93,.11), 0 1px 3px rgba(0,0,0,.08); transition: all 0.15s ease;")
         )
       ),
       easyClose = TRUE,
       size = "m",
-      footer = div(
-        style = "display: flex; justify-content: flex-end; gap: 10px; padding: 15px 20px; background-color: #f8f9fa; border-top: 1px solid #dee2e6;",
-        actionButton("modal_cancel_load", "Cancelar",
-                    icon = icon("times"),
-                    class = "btn btn-primary",
-                    style = "padding: 10px 25px; font-size: 14px; color: white;")
-      )
+      footer = NULL
     ))
+  })
+  
+  # Actualizar lista de archivos cuando cambia la fuente
+  shiny::observeEvent(input$modal_fuente, {
+    req(input$modal_fuente)
+    archivos <- listar_archivos_reparto(input$modal_fuente)
+    opciones <- if(length(archivos) > 0) setNames(archivos, basename(archivos)) else c("No hay archivos" = "")
+    
+    shinyWidgets::updatePickerInput(session, "modal_archivo", choices = opciones)
   })
   
   # Función para actualizar el contenido del modal a estado de carga
@@ -192,25 +210,35 @@ create_dynamic_server <- function(input, output,
     removeModal()
   })
   
-  # Observer para cargar datos CASA
-  shiny::observeEvent(input$select_casa, {
-    cat("Seleccionada fuente CASA\n")  # Debug
+  # Cargar datos al presionar el botón
+  shiny::observeEvent(input$modal_cargar, {
+    req(input$modal_archivo)
+    archivo_seleccionado <- input$modal_archivo
+    fuente <- input$modal_fuente
+    
+    if (archivo_seleccionado == "") {
+      showNotification("Por favor seleccione un archivo válido", type = "warning")
+      return()
+    }
+    
+    cat(sprintf("Seleccionada fuente %s, archivo: %s\n", fuente, basename(archivo_seleccionado)))
     
     # Cambiar modal a estado de carga
-    actualizar_modal_cargando("CASA")
+    actualizar_modal_cargando(fuente)
     
     # Actualizar estado de carga
     loading_data(TRUE)
     
     tryCatch({
-      cat("Iniciando carga de datos CASA...\n")  # Debug en consola
+      cat(sprintf("Iniciando carga de datos %s...\n", fuente))
       
+      # Usar archivo específico
       datos <- preparar_datos_reparto(
-        rutas = c(".data/CASA", "./data/CASA", "data/CASA", "./.data/CASA")
+        archivo_especifico = archivo_seleccionado
       )
       
       if (!is.null(datos)) {
-        cat("Datos CASA cargados exitosamente:", nrow(datos), "filas\n")  # Debug
+        cat(sprintf("Datos %s cargados exitosamente: %d filas\n", fuente, nrow(datos)))
         
         datos_dt <- datos %>% as.data.table()
         
@@ -223,95 +251,26 @@ create_dynamic_server <- function(input, output,
         removeModal()
         
         showNotification(
-          paste("✓ Datos CASA cargados:", formatC(nrow(datos_dt), format = "d", big.mark = " "), "registros únicos"),
+          paste(sprintf("✓ Datos %s cargados:", fuente), formatC(nrow(datos_dt), format = "d", big.mark = " "), "registros únicos"),
           type = "message",
           duration = 5
         )
       } else {
-        cat("Error: preparar_datos_reparto() devolvió NULL\n")  # Debug
+        cat("Error: preparar_datos_reparto() devolvió NULL\n")
         loading_data(FALSE)
-        
-        # Cerrar modal incluso si hay error
         removeModal()
-        
         showNotification(
-          "No se encontraron archivos CSV en .data/CASA",
+          sprintf("No se pudo cargar el archivo %s", basename(archivo_seleccionado)),
           type = "error",
           duration = 10
         )
       }
     }, error = function(e) {
-      cat("Error en carga de datos CASA:", e$message, "\n")  # Debug
+      cat(sprintf("Error en carga de datos %s: %s\n", fuente, e$message))
       loading_data(FALSE)
-      
-      # Cerrar modal en caso de error
       removeModal()
-      
       showNotification(
-        paste("Error al cargar datos CASA:", e$message),
-        type = "error",
-        duration = 10
-      )
-    })
-  })
-  
-  # Observer para cargar datos SIE
-  shiny::observeEvent(input$select_sie, {
-    cat("Seleccionada fuente SIE\n")  # Debug
-    
-    # Cambiar modal a estado de carga
-    actualizar_modal_cargando("SIE")
-    
-    # Actualizar estado de carga
-    loading_data(TRUE)
-    
-    tryCatch({
-      cat("Iniciando carga de datos SIE...\n")  # Debug en consola
-      
-      datos <- preparar_datos_reparto(
-        rutas = c(".data/SIE", "./data/SIE", "data/SIE", "./.data/SIE")
-      )
-      
-      if (!is.null(datos)) {
-        cat("Datos SIE cargados exitosamente:", nrow(datos), "filas\n")  # Debug
-        
-        datos_dt <- datos %>% as.data.table()
-        
-        # Actualizar los datos y estado
-        datos_raw(datos)
-        datos_loaded(TRUE)
-        loading_data(FALSE)
-        
-        # Cerrar modal después de carga exitosa
-        removeModal()
-        
-        showNotification(
-          paste("✓ Datos SIE cargados:", formatC(nrow(datos_dt), format = "d", big.mark = " "), "registros únicos"),
-          type = "message",
-          duration = 5
-        )
-      } else {
-        cat("Error: preparar_datos_reparto() devolvió NULL\n")  # Debug
-        loading_data(FALSE)
-        
-        # Cerrar modal incluso si hay error
-        removeModal()
-        
-        showNotification(
-          "No se encontraron archivos CSV en .data/SIE",
-          type = "error",
-          duration = 10
-        )
-      }
-    }, error = function(e) {
-      cat("Error en carga de datos SIE:", e$message, "\n")  # Debug
-      loading_data(FALSE)
-      
-      # Cerrar modal en caso de error
-      removeModal()
-      
-      showNotification(
-        paste("Error al cargar datos SIE:", e$message),
+        paste(sprintf("Error al cargar datos %s:", fuente), e$message),
         type = "error",
         duration = 10
       )

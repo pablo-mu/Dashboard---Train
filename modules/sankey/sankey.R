@@ -25,6 +25,8 @@ construir_enlaces_sankey <- function(
   nivel_agregacion = "cac",
   cac_subcac_origen = NULL,
   cac_subcac_destino = NULL,
+  fase1_filter = NULL,
+  fase2_filter = NULL,
   mes = NULL,
   anyo = NULL,
   fases_incluir = NULL,
@@ -74,6 +76,11 @@ construir_enlaces_sankey <- function(
   }
   if (!is.data.table(matriz)) matriz <- as.data.table(matriz)
 
+  # Expandir selecciones de origen si existen grupos
+  if (!is.null(cac_subcac_origen) && length(cac_subcac_origen) > 0) {
+    cac_subcac_origen <- expandir_seleccion_cac(cac_subcac_origen, unique(matriz$fase_0))
+  }
+
   # Filtrar por origen (fase_0) si se especifica
   if (!is.null(cac_subcac_origen) && length(cac_subcac_origen) > 0) {
     n_antes <- nrow(matriz)
@@ -90,6 +97,37 @@ construir_enlaces_sankey <- function(
       warning("No hay registros con los orígenes seleccionados")
       return(NULL)
     }
+  }
+
+  # Expandir selecciones de fase si existen grupos (terminan en ..)
+  if (!is.null(fase1_filter) && "fase_1" %in% names(matriz)) {
+    fase1_filter <- expandir_seleccion_cac(fase1_filter, unique(matriz$fase_1))
+  }
+  if (!is.null(fase2_filter) && "fase_2" %in% names(matriz)) {
+    fase2_filter <- expandir_seleccion_cac(fase2_filter, unique(matriz$fase_2))
+  }
+  if (!is.null(cac_subcac_destino)) {
+    # Recopilar todos los posibles destinos para la expansión
+    posibles_destinos <- c()
+    for (fase_num in fases_a_procesar) {
+      col_destino <- paste0("fase_", fase_num)
+      if (col_destino %in% names(matriz)) {
+        posibles_destinos <- c(posibles_destinos, unique(matriz[[col_destino]]))
+      }
+    }
+    cac_subcac_destino <- expandir_seleccion_cac(cac_subcac_destino, unique(posibles_destinos))
+  }
+
+  # Filtrar por Fase 1
+  if (!is.null(fase1_filter) && length(fase1_filter) > 0 && "fase_1" %in% names(matriz)) {
+    matriz <- matriz[fase_1 %in% fase1_filter]
+    if (nrow(matriz) == 0) return(NULL)
+  }
+
+  # Filtrar por Fase 2
+  if (!is.null(fase2_filter) && length(fase2_filter) > 0 && "fase_2" %in% names(matriz)) {
+    matriz <- matriz[fase_2 %in% fase2_filter]
+    if (nrow(matriz) == 0) return(NULL)
   }
 
   # Filtrar por destino si se especifica

@@ -335,14 +335,39 @@ leer_archivo_csv_auto <- function(archivo, sep, encodings) {
 # 4. CARGA DE DATOS SIMPLIFICADA
 # =============================================================================
 
+#' Listar archivos disponibles por tipo
+#' @param tipo "CASA" o "SIE"
+#' @return Vector con rutas de archivos
+listar_archivos_reparto <- function(tipo = "CASA") {
+  rutas_base <- c(".data", "./data", "data", "./.data")
+  rutas_tipo <- file.path(rutas_base, tipo)
+  
+  archivos_encontrados <- c()
+  
+  for (ruta in rutas_tipo) {
+    if (dir.exists(ruta)) {
+      archivos <- list.files(ruta, pattern = "\\.csv$", full.names = TRUE, ignore.case = TRUE)
+      if (length(archivos) > 0) {
+        # Normalizar rutas para evitar duplicados
+        archivos_norm <- normalizePath(archivos, winslash = "/", mustWork = FALSE)
+        archivos_encontrados <- c(archivos_encontrados, archivos_norm)
+      }
+    }
+  }
+  
+  return(unique(archivos_encontrados))
+}
+
 #' Carga datos de reparto desde archivos CSV
 #' 
 #' @param rutas Vector de rutas donde buscar archivos CSV
+#' @param archivo_especifico Ruta a un archivo específico (opcional)
 #' @param sep Separador de columnas
 #' @param encodings Vector de encodings a probar
 #' @return data.frame con datos cargados
 carga_datos_reparto <- function(
   rutas = c(".data", "./data", "data", "./.data"),
+  archivo_especifico = NULL,
   sep = ";",
   encodings = c("UTF-8", "latin1", "ISO-8859-1", "windows-1252")
 ) {
@@ -351,24 +376,35 @@ carga_datos_reparto <- function(
   archivos_encontrados <- NULL
   ruta_encontrada <- NULL
   
-  for (ruta in rutas) {
-    if (dir.exists(ruta)) {
-      archivos <- list.files(ruta, pattern = "\\.csv$", full.names = TRUE, ignore.case = TRUE)
-      if (length(archivos) > 0) {
-        archivos_encontrados <- archivos
-        ruta_encontrada <- ruta
-        break
+  if (!is.null(archivo_especifico) && archivo_especifico != "") {
+    if (file.exists(archivo_especifico)) {
+      archivos_encontrados <- archivo_especifico
+      ruta_encontrada <- dirname(archivo_especifico)
+      message(sprintf("✓ Cargando archivo específico: %s", basename(archivo_especifico)))
+    } else {
+      warning(sprintf("El archivo específico no existe: %s", archivo_especifico))
+      return(NULL)
+    }
+  } else {
+    for (ruta in rutas) {
+      if (dir.exists(ruta)) {
+        archivos <- list.files(ruta, pattern = "\\.csv$", full.names = TRUE, ignore.case = TRUE)
+        if (length(archivos) > 0) {
+          archivos_encontrados <- archivos
+          ruta_encontrada <- ruta
+          break
+        }
       }
     }
+    
+    if (is.null(archivos_encontrados)) {
+      warning("No se encontraron archivos CSV en las rutas especificadas.")
+      return(NULL)
+    }
+    
+    message(sprintf("✓ Encontrados %d archivo(s) CSV en: %s", 
+                    length(archivos_encontrados), ruta_encontrada))
   }
-  
-  if (is.null(archivos_encontrados)) {
-    warning("No se encontraron archivos CSV en las rutas especificadas.")
-    return(NULL)
-  }
-  
-  message(sprintf("✓ Encontrados %d archivo(s) CSV en: %s", 
-                  length(archivos_encontrados), ruta_encontrada))
   
   # Leer archivos
   datos_list <- lapply(archivos_encontrados, function(archivo) {
@@ -444,6 +480,35 @@ limpiar_datos_reparto <- function(datos) {
   return(datos_limpios)
 }
 
+#' Expandir selección de CACs incluyendo grupos
+#' @param seleccion Vector de selecciones (puede incluir "1..", "2..")
+#' @param todos_los_cacs Vector con todos los CACs disponibles
+#' @return Vector con todos los CACs expandidos
+expandir_seleccion_cac <- function(seleccion, todos_los_cacs) {
+  if (is.null(seleccion) || length(seleccion) == 0) return(NULL)
+  if (any(seleccion == "")) return(NULL) # "Todos"
+  
+  # Identificar grupos (terminan en ..)
+  es_grupo <- grepl("\\.\\.$", seleccion)
+  
+  if (!any(es_grupo)) {
+    return(seleccion)
+  }
+  
+  grupos <- seleccion[es_grupo]
+  individuales <- seleccion[!es_grupo]
+  
+  cacs_expandidos <- individuales
+  
+  for (grupo in grupos) {
+    prefijo <- substr(grupo, 1, nchar(grupo) - 2) # Quitar ".."
+    matches <- todos_los_cacs[startsWith(as.character(todos_los_cacs), prefijo)]
+    cacs_expandidos <- c(cacs_expandidos, matches)
+  }
+  
+  return(unique(cacs_expandidos))
+}
+
 #' Filtrar datos de reparto
 filtrar_datos_reparto <- function(datos, centro_gestor = NULL, cacs_origen = NULL, 
                                  subcacs_origen = NULL, mes = NULL, anyo = NULL, 
@@ -459,10 +524,14 @@ filtrar_datos_reparto <- function(datos, centro_gestor = NULL, cacs_origen = NUL
   
   if (nivel_agregacion == "subcac" && !is.null(subcacs_origen)) {
     if ("ZCT_SUBCAC_E" %in% names(datos_filtrados)) {
-      datos_filtrados <- datos_filtrados %>% filter(ZCT_SUBCAC_E %in% subcacs_origen)
+      # Expandir selección si hay grupos
+      subcacs_expandidos <- expandir_seleccion_cac(subcacs_origen, unique(datos_filtrados$ZCT_SUBCAC_E))
+      datos_filtrados <- datos_filtrados %>% filter(ZCT_SUBCAC_E %in% subcacs_expandidos)
     }
   } else if (!is.null(cacs_origen)) {
-    datos_filtrados <- datos_filtrados %>% filter(ZACT_E %in% cacs_origen)
+    # Expandir selección si hay grupos
+    cacs_expandidos <- expandir_seleccion_cac(cacs_origen, unique(datos_filtrados$ZACT_E))
+    datos_filtrados <- datos_filtrados %>% filter(ZACT_E %in% cacs_expandidos)
   }
   
   if (!is.null(mes) && "ZMES" %in% names(datos_filtrados)) {
@@ -1119,8 +1188,8 @@ extraer_movimientos <- function(
 # =============================================================================
 
 #' Pipeline completo de carga y limpieza
-preparar_datos_reparto <- function(...) {
-  datos_raw <- carga_datos_reparto(...)
+preparar_datos_reparto <- function(..., archivo_especifico = NULL) {
+  datos_raw <- carga_datos_reparto(..., archivo_especifico = archivo_especifico)
   datos_limpios <- limpiar_datos_reparto(datos_raw)
   return(datos_limpios)
 }

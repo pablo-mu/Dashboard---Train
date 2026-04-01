@@ -72,6 +72,20 @@ create_matriz_server <- function(input, output, session, datos_raw, active_panel
       NULL
     }
     
+    # Fase 1
+    fase1_val <- if (!is.null(input$fase1) && length(input$fase1) > 0 && input$fase1[1] != "") {
+      input$fase1
+    } else {
+      NULL
+    }
+
+    # Fase 2
+    fase2_val <- if (!is.null(input$fase2) && length(input$fase2) > 0 && input$fase2[1] != "") {
+      input$fase2
+    } else {
+      NULL
+    }
+    
     # Mes
     mes_val <- if (!is.null(input$mes) && length(input$mes) > 0 && input$mes[1] != "") {
       as.numeric(input$mes)
@@ -123,6 +137,8 @@ create_matriz_server <- function(input, output, session, datos_raw, active_panel
         nivel_agregacion = nivel_agregacion_val,
         cac_subcac_origen = cac_subcac_origen_val,
         cac_subcac_destino = cac_subcac_destino_val,
+        fase1_filter = fase1_val,
+        fase2_filter = fase2_val,
         mes = mes_val,
         anyo = anyo_val,
         fases_incluir = fases_incluir_val,

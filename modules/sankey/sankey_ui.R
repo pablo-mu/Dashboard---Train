@@ -118,6 +118,26 @@ create_sankey_content <- function() {
           )
         )
       )
+    ),
+    
+    # Tabla de resumen acumulado
+    fluidRow(
+      column(
+        width = 12,
+        box(
+          title = "Resumen Acumulado por Origen y Fase",
+          width = NULL,
+          status = "primary",
+          solidHeader = TRUE,
+          collapsible = TRUE,
+          withSpinner(
+            DT::dataTableOutput("sankey_resumen_table"),
+            type = 4,
+            color = "#d33724",
+            size = 0.5
+          )
+        )
+      )
     )
   )
 }

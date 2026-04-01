@@ -112,6 +112,20 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
       NULL
     }
     
+    # Fase 1
+    fase1_val <- if (!is.null(input$fase1) && length(input$fase1) > 0 && input$fase1[1] != "") {
+      input$fase1
+    } else {
+      NULL
+    }
+
+    # Fase 2
+    fase2_val <- if (!is.null(input$fase2) && length(input$fase2) > 0 && input$fase2[1] != "") {
+      input$fase2
+    } else {
+      NULL
+    }
+    
     # Mes
     mes_val <- if (!is.null(input$mes) && length(input$mes) > 0 && input$mes[1] != "") {
       as.numeric(input$mes)
@@ -207,6 +221,31 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
       matriz_df$fase_1 <- aplicar_nivel(matriz_df$fase_1, nivel_agregacion)
       matriz_df$fase_2 <- aplicar_nivel(matriz_df$fase_2, nivel_agregacion)
       matriz_df$fase_3 <- aplicar_nivel(matriz_df$fase_3, nivel_agregacion)
+      
+      # ==========================================================================
+      # APLICAR FILTROS DE FASE (1, 2, 3)
+      # ==========================================================================
+      
+      # Expandir selecciones de fase usando la función de lib_reparto.R
+      if (!is.null(fase1_val)) {
+        fase1_val <- expandir_seleccion_cac(fase1_val, unique(matriz_df$fase_1))
+      }
+      if (!is.null(fase2_val)) {
+        fase2_val <- expandir_seleccion_cac(fase2_val, unique(matriz_df$fase_2))
+      }
+      if (!is.null(cac_destino_val)) {
+        cac_destino_val <- expandir_seleccion_cac(cac_destino_val, unique(matriz_df$fase_3))
+      }
+      
+      # Helper para filtrar robustamente
+      filtrar_fase <- function(datos, columna, valores) {
+        if (is.null(valores)) return(datos)
+        datos[datos[[columna]] %in% valores, ]
+      }
+      
+      matriz_df <- filtrar_fase(matriz_df, "fase_1", fase1_val)
+      matriz_df <- filtrar_fase(matriz_df, "fase_2", fase2_val)
+      matriz_df <- filtrar_fase(matriz_df, "fase_3", cac_destino_val)
       
       # ==========================================================================
       # CREAR TABLA PIVOTADA: CAC_Final x [CD, F1, F2, F3]
@@ -365,12 +404,6 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
         # Reordenar columnas
         cols_pct <- c("CD", "Pct_CD", "F1", "Pct_F1", "F2", "Pct_F2", "F3", "Pct_F3", "Total")
         tabla_final <- tabla_final[, c(cols_metadata, cols_pct), drop = FALSE]
-      }
-      
-      # Filtrar por CAC destino si se especificó
-      if (!is.null(cac_destino_val)) {
-        tabla_final <- tabla_final %>%
-          filter(CAC_Final %in% cac_destino_val)
       }
       
       # Ordenar por Total descendente
@@ -740,7 +773,7 @@ create_traza_server <- function(input, output, session, datos_raw, active_panel)
         # Total ya se llama Total
       }
       
-      write.csv(tabla, file, row.names = FALSE, fileEncoding = "UTF-8")
+      write.csv2(tabla, file, row.names = FALSE, fileEncoding = "latin1")
     }
   )
   
